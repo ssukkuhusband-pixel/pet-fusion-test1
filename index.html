@@ -1157,14 +1157,23 @@
                   : "1px solid rgba(255,255,255,0.05)",
               }
             },
-              // Result header
+              // Result header - clickable SS pet
               React.createElement("div", {
-                style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }
+                style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }
               },
-                React.createElement("span", {
-                  style: { fontSize: "32px", animation: recipe.canCraft ? "glow 2s ease-in-out infinite" : "none" }
-                }, PET_EMOJIS.SS[recipe.result]),
-                React.createElement("div", null,
+                React.createElement("div", {
+                  onClick: () => setPetDetail({ grade: "SS", idx: recipe.result, enhance: 0 }),
+                  style: { cursor: "pointer", transition: "transform 0.2s" },
+                  onMouseEnter: (e) => e.currentTarget.style.transform = "scale(1.1)",
+                  onMouseLeave: (e) => e.currentTarget.style.transform = "scale(1)",
+                },
+                  React.createElement(PetCard, {
+                    grade: "SS", idx: recipe.result, compact: true, hideEnhance: true,
+                  })
+                ),
+                React.createElement("div", {
+                  style: { display: "flex", flexDirection: "column", gap: "2px" }
+                },
                   React.createElement("div", {
                     style: { display: "flex", alignItems: "center", gap: "4px" }
                   },
@@ -1172,7 +1181,11 @@
                     React.createElement("span", {
                       style: { fontSize: "15px", fontWeight: 800, color: ssC.text }
                     }, PET_NAMES.SS[recipe.result])
-                  )
+                  ),
+                  React.createElement("div", {
+                    style: { fontSize: "11px", color: "#718096", cursor: "pointer" },
+                    onClick: () => setPetDetail({ grade: "SS", idx: recipe.result, enhance: 0 }),
+                  }, "👆 터치하여 스킬 확인")
                 )
               ),
               // Materials
