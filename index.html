@@ -53,7 +53,7 @@
 
     const PULL_RATES = { C: 0.55, B: 0.3, A: 0.12, S: 0.03 };
     const MAX_ENHANCE = { C: 0, B: 1, A: 1, S: 2, SS: 0 };
-    const FUSION_NEED = { C: 4, B: 3, A: 3 };
+    const FUSION_NEED = { C: 4, B: 3, A: 2 };
     const FEED_REWARD = { C: 1, B: 2, A: 4 };
     const S_EXCHANGE_COST = 35;
 
@@ -81,6 +81,132 @@
       { result: 4, mat1: 8, mat2: 9, name: "폭풍매 + 유성드래곤" },
       { result: 5, mat1: 10, mat2: 11, name: "벚꽃요정 + 별의수호자" },
     ];
+
+    // PASSIVE_COUNT: C=0, B=1, A=1, S=2, SS=2
+    const PASSIVE_COUNT = { C: 0, B: 1, A: 1, S: 2, SS: 2 };
+    // Cooldown reduction per enhance level (B/A: -1 at max, S: -1 per level)
+    const COOL_REDUCE = { C: 0, B: 1, A: 1, S: 1, SS: 0 };
+
+    const PET_SKILLS = {
+      C: [
+        { active: { name: "독 뿜기", desc: "적에게 독 데미지 50", cooldown: 8 }, passives: [] },
+        { active: { name: "껍질 방어", desc: "이번 턴 받는 피해 20% 감소", cooldown: 10 }, passives: [] },
+        { active: { name: "독침", desc: "적에게 공격력 80%의 독 데미지", cooldown: 9 }, passives: [] },
+        { active: { name: "꼬리 치기", desc: "적에게 공격력 90%의 데미지", cooldown: 8 }, passives: [] },
+      ],
+      B: [
+        { active: { name: "늑대의 울부짖음", desc: "3턴간 공격력 12% 증가", cooldown: 8 },
+          passives: [{ name: "추적 본능", base: "주인공이 3회 연속 공격 시 25% 확률로 추가 타격", enhanced: "주인공이 3회 연속 공격 시 40% 확률로 추가 타격" }] },
+        { active: { name: "환영 돌진", desc: "적에게 공격력 150%의 데미지", cooldown: 7 },
+          passives: [{ name: "교활함", base: "주인공 피격 시 20% 확률로 환영 돌진 쿨타임 2 감소", enhanced: "주인공 피격 시 35% 확률로 환영 돌진 쿨타임 2 감소" }] },
+        { active: { name: "곰의 포옹", desc: "3턴간 방어력 20% 증가", cooldown: 9 },
+          passives: [{ name: "분노", base: "주인공 HP 50% 이하일 때 곰의 포옹 방어력 증가량 +15%", enhanced: "주인공 HP 50% 이하일 때 곰의 포옹 방어력 증가량 +30%" }] },
+        { active: { name: "왕의 포효", desc: "적 전체에 공격력 80%의 데미지", cooldown: 10 },
+          passives: [{ name: "위압", base: "왕의 포효 발동 시 30% 확률로 적 전체 1턴 기절", enhanced: "왕의 포효 발동 시 50% 확률로 적 전체 1턴 기절" }] },
+        { active: { name: "맹호 습격", desc: "적에게 공격력 180%의 데미지", cooldown: 8 },
+          passives: [{ name: "급소 포착", base: "적 HP 30% 이하일 때 맹호 습격 데미지 40% 증가", enhanced: "적 HP 30% 이하일 때 맹호 습격 데미지 70% 증가" }] },
+        { active: { name: "급강하", desc: "적에게 공격력 160%의 데미지", cooldown: 7 },
+          passives: [{ name: "선제 타격", base: "전투 시작 후 첫 급강하 사용 시 치명타 확정", enhanced: "전투 시작 후 첫 급강하 사용 시 치명타 확정 + 데미지 30% 증가" }] },
+        { active: { name: "피의 광란", desc: "4턴간 공격속도 15% 증가", cooldown: 9 },
+          passives: [{ name: "피의 갈증", base: "피의 광란 지속 중 킬 획득 시 HP 8% 회복", enhanced: "피의 광란 지속 중 킬 획득 시 HP 15% 회복" }] },
+        { active: { name: "먹물 분사", desc: "적 전체에 2턴간 명중률 15% 감소", cooldown: 10 },
+          passives: [{ name: "연막 전술", base: "먹물 분사 적중 시 25% 확률로 주인공 다음 피격 무효", enhanced: "먹물 분사 적중 시 40% 확률로 주인공 다음 피격 무효" }] },
+      ],
+      A: [
+        { active: { name: "화염 브레스", desc: "적 전체에 공격력 120%의 화염 데미지", cooldown: 8 },
+          passives: [{ name: "잔화", base: "화염 브레스 적중 시 30% 확률로 2턴간 화상 (매 턴 공격력 20% 데미지)", enhanced: "화염 브레스 적중 시 50% 확률로 3턴간 화상 (매 턴 공격력 30% 데미지)" }] },
+        { active: { name: "신성한 돌진", desc: "적에게 공격력 200%의 데미지 + HP 10% 회복", cooldown: 9 },
+          passives: [{ name: "축복의 뿔", base: "주인공 HP 30% 이하일 때 신성한 돌진 회복량 2배", enhanced: "주인공 HP 30% 이하일 때 신성한 돌진 회복량 3배 + 쿨타임 2 감소" }] },
+        { active: { name: "암흑 폭발", desc: "적 전체에 공격력 100%의 암흑 데미지", cooldown: 7 },
+          passives: [{ name: "야행성", base: "암흑 폭발로 킬 획득 시 즉시 쿨타임 초기화 (턴당 1회)", enhanced: "암흑 폭발로 킬 획득 시 즉시 쿨타임 초기화 (턴당 2회)" }] },
+        { active: { name: "독아 물기", desc: "적에게 공격력 170%의 독 데미지 + 3턴 중독", cooldown: 8 },
+          passives: [{ name: "맹독 혈관", base: "중독된 적 피격 시 25% 확률로 반격 (공격력 60%)", enhanced: "중독된 적 피격 시 40% 확률로 반격 (공격력 80%)" }] },
+        { active: { name: "독침 난사", desc: "적에게 공격력 60%의 데미지 x4회", cooldown: 9 },
+          passives: [{ name: "갑각", base: "주인공 HP 30% 이하 진입 시 1회 무적 + 독침 난사 쿨타임 초기화", enhanced: "주인공 HP 30% 이하 진입 시 1회 무적 + 독침 난사 즉시 발동" }] },
+        { active: { name: "심해 포옹", desc: "적에게 공격력 180%의 데미지 + 2턴 속박", cooldown: 10 },
+          passives: [{ name: "흡착", base: "속박된 적 공격 시 30% 확률로 같이 공격 (공격력 40%)", enhanced: "속박된 적 공격 시 50% 확률로 같이 공격 (공격력 60%)" }] },
+        { active: { name: "해류 충격파", desc: "적 전체에 공격력 130%의 수속성 데미지", cooldown: 9 },
+          passives: [{ name: "파도의 연쇄", base: "해류 충격파 킬 시 나머지 적에게 추가 50% 데미지", enhanced: "해류 충격파 킬 시 나머지 적에게 추가 80% 데미지 + 1턴 감속" }] },
+        { active: { name: "돌진", desc: "적에게 공격력 220%의 데미지", cooldown: 10 },
+          passives: [{ name: "불굴", base: "주인공 HP 50% 이하일 때 돌진 데미지 40% 증가", enhanced: "주인공 HP 50% 이하일 때 돌진 데미지 60% 증가 + 관통" }] },
+      ],
+      S: [
+        { active: { name: "화염 심판", desc: "적 전체에 공격력 200%의 화염 데미지 + 3턴 화상", cooldown: 8 },
+          passives: [
+            { name: "불꽃 갑옷", base: "주인공 피격 시 20% 확률로 공격자에게 반격 (화염 심판 공격력 30%)", enhanced: "주인공 피격 시 35% 확률로 공격자에게 반격 (화염 심판 공격력 50%)" },
+            { name: "연소 폭발", base: "화상 상태의 적 3마리 이상일 때 화염 심판 데미지 30% 증가", enhanced: "화상 상태의 적 3마리 이상일 때 화염 심판 데미지 50% 증가 + 쿨타임 1 감소" }] },
+        { active: { name: "절대영도", desc: "적 전체에 공격력 180%의 빙결 데미지 + 30% 확률로 동결", cooldown: 9 },
+          passives: [
+            { name: "동결 연쇄", base: "동결된 적 피격 시 25% 확률로 인접 적도 동결 1턴", enhanced: "동결된 적 피격 시 40% 확률로 인접 적도 동결 1턴" },
+            { name: "빙결핵", base: "동결이 풀릴 때 해당 적에게 공격력 100%의 추가 빙결 데미지", enhanced: "동결이 풀릴 때 해당 적에게 공격력 160%의 추가 빙결 데미지" }] },
+        { active: { name: "천둥 강타", desc: "적에게 공격력 300%의 번개 데미지", cooldown: 7 },
+          passives: [
+            { name: "전류", base: "주인공 공격 시 25% 확률로 같이 공격 (공격력 40%)", enhanced: "주인공 공격 시 35% 확률로 같이 공격 (공격력 60%)" },
+            { name: "과부하", base: "천둥 강타 치명타 시 다음 턴 주인공 공격에 번개 추가 데미지 50%", enhanced: "천둥 강타 치명타 시 다음 2턴 주인공 공격에 번개 추가 데미지 80%" }] },
+        { active: { name: "해일", desc: "적 전체에 공격력 160%의 수속성 데미지 + HP 15% 회복", cooldown: 10 },
+          passives: [
+            { name: "재생의 물결", base: "해일 발동 시 3턴간 매 턴 HP 3% 추가 회복", enhanced: "해일 발동 시 5턴간 매 턴 HP 5% 추가 회복" },
+            { name: "수압", base: "주인공이 회복될 때 30% 확률로 해일 쿨타임 1 감소", enhanced: "주인공이 회복될 때 45% 확률로 해일 쿨타임 2 감소" }] },
+        { active: { name: "암흑 참격", desc: "적에게 공격력 280%의 암흑 데미지 + 흡혈 20%", cooldown: 8 },
+          passives: [
+            { name: "어둠의 칼날", base: "암흑 참격 킬 시 흡혈량 HP 15% 추가 회복", enhanced: "암흑 참격 킬 시 흡혈량 HP 25% 추가 회복 + 쿨타임 2 감소" },
+            { name: "공포", base: "암흑 참격 피격 대상 20% 확률로 2턴간 공포 (공격력 30% 감소)", enhanced: "암흑 참격 피격 대상 35% 확률로 2턴간 공포 (공격력 50% 감소)" }] },
+        { active: { name: "태양 섬광", desc: "적 전체에 공격력 190%의 광속성 데미지 + 실명 2턴", cooldown: 9 },
+          passives: [
+            { name: "일광 충전", base: "태양 섬광 미사용 3턴 경과 시 다음 발동 데미지 50% 증가", enhanced: "태양 섬광 미사용 3턴 경과 시 다음 발동 데미지 80% 증가 + 실명 3턴" },
+            { name: "빛의 심판", base: "실명 상태의 적 공격 시 30% 확률로 주인공과 함께 협공", enhanced: "실명 상태의 적 공격 시 45% 확률로 주인공과 함께 협공" }] },
+        { active: { name: "다이아 방벽", desc: "5턴간 받는 데미지 40% 감소", cooldown: 12 },
+          passives: [
+            { name: "결정 반사", base: "다이아 방벽 지속 중 피격 시 25% 확률로 데미지 50% 반사", enhanced: "다이아 방벽 지속 중 피격 시 40% 확률로 데미지 70% 반사" },
+            { name: "보석 공명", base: "다이아 방벽 종료 시 30% 확률로 쿨타임 즉시 4 감소", enhanced: "다이아 방벽 종료 시 50% 확률로 쿨타임 즉시 6 감소" }] },
+        { active: { name: "월광 참격", desc: "적에게 공격력 260%의 데미지 (밤에 50% 추가)", cooldown: 8 },
+          passives: [
+            { name: "달의 인도", base: "주인공 회피 성공 시 월광 참격 다음 발동 데미지 30% 증가 (누적 2회)", enhanced: "주인공 회피 성공 시 월광 참격 다음 발동 데미지 40% 증가 (누적 3회)" },
+            { name: "월식", base: "월광 참격 치명타 시 대상의 스킬 쿨타임 2 증가", enhanced: "월광 참격 치명타 시 대상의 스킬 쿨타임 3 증가 + 2턴 암흑" }] },
+        { active: { name: "폭풍 질주", desc: "적에게 공격력 150%의 데미지 x3회", cooldown: 8 },
+          passives: [
+            { name: "질풍 연타", base: "폭풍 질주 각 타격 시 20% 확률로 추가 1회 타격", enhanced: "폭풍 질주 각 타격 시 35% 확률로 추가 1회 타격" },
+            { name: "난기류", base: "폭풍 질주 3타 모두 적중 시 주인공 다음 피격 회피 확정", enhanced: "폭풍 질주 3타 모두 적중 시 주인공 다음 피격 회피 확정 + 쿨타임 2 감소" }] },
+        { active: { name: "유성 충돌", desc: "적 전체에 공격력 250%의 데미지", cooldown: 11 },
+          passives: [
+            { name: "대기권 진입", base: "유성 충돌 발동 시 다음 주인공 공격 치명타 확정", enhanced: "유성 충돌 발동 시 다음 2회 주인공 공격 치명타 확정" },
+            { name: "운석 파편", base: "유성 충돌 킬 시 15% 확률로 같은 위력의 유성이 한번 더 낙하", enhanced: "유성 충돌 킬 시 30% 확률로 같은 위력의 유성이 한번 더 낙하" }] },
+        { active: { name: "꽃비", desc: "아군 전체 HP 20% 회복 + 3턴간 공격력 10% 증가", cooldown: 10 },
+          passives: [
+            { name: "꽃잎 보호", base: "꽃비 지속 중 주인공 피격 시 20% 확률로 피해 흡수 후 HP로 전환", enhanced: "꽃비 지속 중 주인공 피격 시 35% 확률로 피해 흡수 후 HP로 전환" },
+            { name: "봄의 기운", base: "꽃비로 HP가 최대치 도달 시 초과 회복량의 50%를 보호막으로 전환", enhanced: "꽃비로 HP가 최대치 도달 시 초과 회복량의 80%를 보호막으로 전환" }] },
+        { active: { name: "별의 가호", desc: "아군 전체 5턴간 받는 데미지 25% 감소", cooldown: 12 },
+          passives: [
+            { name: "별빛 보호막", base: "별의 가호 발동 시 주인공에게 HP 10%의 보호막 추가 생성", enhanced: "별의 가호 발동 시 주인공에게 HP 18%의 보호막 추가 생성" },
+            { name: "성광 폭발", base: "별의 가호 지속 중 보호막 파괴 시 적 전체에 파괴된 보호막의 200% 데미지", enhanced: "별의 가호 지속 중 보호막 파괴 시 적 전체에 파괴된 보호막의 350% 데미지" }] },
+      ],
+      SS: [
+        { active: { name: "불멸의 불꽃", desc: "적 전체에 공격력 350%의 화염 데미지 + HP 1일 때 부활 1회", cooldown: 10 },
+          passives: [
+            { name: "피닉스의 깃털", base: "주인공 사망 시 1회 HP 30%로 부활 + 불멸의 불꽃 즉시 발동" },
+            { name: "영원한 화염", base: "불멸의 불꽃으로 화상 부여 시 해당 화상은 해제 불가 + 매 턴 데미지 10%씩 증가" }] },
+        { active: { name: "빙하기", desc: "적 전체에 공격력 300%의 빙결 데미지 + 50% 확률로 동결 2턴", cooldown: 10 },
+          passives: [
+            { name: "영구 동토", base: "동결된 적 사망 시 인접 적에게 동결 전이 + 공격력 80%의 빙결 폭발" },
+            { name: "극저온 장막", base: "빙하기 발동 후 3턴간 주인공 피격 시 공격자 30% 확률로 동결 1턴" }] },
+        { active: { name: "뇌제의 심판", desc: "적에게 공격력 500%의 번개 데미지 (치명타 시 2배)", cooldown: 9 },
+          passives: [
+            { name: "번개 반사", base: "주인공 피격 시 40% 확률로 공격자에게 번개 반격 (공격력 80%)" },
+            { name: "천둥의 왕관", base: "뇌제의 심판 3회 사용마다 다음 발동 시 전체 공격으로 변경 + 데미지 50% 증가" }] },
+        { active: { name: "심연의 파도", desc: "적 전체에 공격력 280%의 데미지 + HP 25% 회복 + 속박 2턴", cooldown: 11 },
+          passives: [
+            { name: "심해의 권능", base: "심연의 파도 회복량의 30%를 다음 턴까지 보호막으로 유지" },
+            { name: "나락", base: "속박 상태의 적 공격 시 방어력 완전 무시 + 35% 확률로 같이 공격" }] },
+        { active: { name: "천상의 심판", desc: "적 전체에 공격력 320%의 광속성 데미지 + 아군 전체 HP 15% 회복", cooldown: 10 },
+          passives: [
+            { name: "신성한 보호막", base: "천상의 심판 발동 시 주인공에게 HP 20%의 신성 보호막 (3턴 지속)" },
+            { name: "천사의 축복", base: "주인공 HP 1% 도달 시 1회 즉시 HP 50% 회복 + 천상의 심판 쿨타임 초기화" }] },
+        { active: { name: "성운 폭발", desc: "적 전체에 공격력 400%의 데미지 + 모든 디버프 해제", cooldown: 12 },
+          passives: [
+            { name: "우주의 의지", base: "성운 폭발로 디버프 해제 시 해제된 디버프 수 ×1턴만큼 모든 펫 쿨타임 감소" },
+            { name: "별의 소멸", base: "성운 폭발 킬 시 처치한 적 수만큼 다음 발동 데미지 20%씩 증가 (최대 100%)" }] },
+      ],
+    };
 
     function createInitialInventory() {
       const inv = {};
@@ -112,8 +238,8 @@
 
     const GradeBadge = ({ grade, size = "sm" }) => {
       const c = GRADE_COLORS[grade];
-      const sizes = { xs: "14px", sm: "18px", md: "24px", lg: "32px" };
-      const fontSizes = { xs: "8px", sm: "10px", md: "13px", lg: "16px" };
+      const sizes = { xs: "16px", sm: "20px", md: "26px", lg: "34px" };
+      const fontSizes = { xs: "9px", sm: "11px", md: "14px", lg: "17px" };
       return React.createElement("span", {
         style: {
           display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -125,20 +251,21 @@
       }, grade);
     };
 
-    const PetCard = ({ grade, idx, enhanceLevel = 0, count, onClick, selected, compact }) => {
+    const PetCard = ({ grade, idx, enhanceLevel = 0, count, onClick, selected, compact, hideEnhance }) => {
       const c = GRADE_COLORS[grade];
       const emoji = PET_EMOJIS[grade][idx];
       const name = PET_NAMES[grade][idx];
       const maxEnh = MAX_ENHANCE[grade];
       const isMax = enhanceLevel >= maxEnh;
       const canEnhanceGrade = maxEnh > 0;
+      const showEnhance = canEnhanceGrade && !hideEnhance;
 
       return React.createElement("div", {
         onClick,
         style: {
           position: "relative",
-          width: compact ? "72px" : "88px",
-          padding: compact ? "6px 4px" : "8px 6px",
+          width: compact ? "80px" : "96px",
+          padding: compact ? "7px 5px" : "9px 7px",
           borderRadius: "10px",
           background: `linear-gradient(145deg, ${c.bg}22, ${c.bg}44)`,
           border: selected ? `2px solid ${c.accent}` : `1px solid ${c.bg}55`,
@@ -149,51 +276,141 @@
           flexShrink: 0,
         }
       },
-        React.createElement("div", { style: { fontSize: compact ? "24px" : "32px", lineHeight: 1 } }, emoji),
+        React.createElement("div", { style: { fontSize: compact ? "28px" : "36px", lineHeight: 1 } }, emoji),
         React.createElement("div", {
-          style: { fontSize: "10px", color: c.text, marginTop: "3px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+          style: { fontSize: "15px", color: c.text, marginTop: "3px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
         }, name),
         React.createElement("div", {
           style: { display: "flex", gap: "3px", justifyContent: "center", marginTop: "3px", alignItems: "center" }
         },
           React.createElement(GradeBadge, { grade, size: "xs" }),
-          canEnhanceGrade && React.createElement("span", {
-            style: { fontSize: "9px", color: isMax ? "#48bb78" : "#a0aec0", fontWeight: 700 }
+          showEnhance && React.createElement("span", {
+            style: { fontSize: "15px", color: isMax ? "#48bb78" : "#a0aec0", fontWeight: 700 }
           }, isMax ? "MAX" : `+${enhanceLevel}/${maxEnh}`)
         ),
         count > 1 && React.createElement("div", {
           style: {
             position: "absolute", top: "-4px", right: "-4px",
-            background: "#e53e3e", color: "#fff", fontSize: "9px", fontWeight: 800,
+            background: "#e53e3e", color: "#fff", fontSize: "15px", fontWeight: 800,
             borderRadius: "8px", padding: "1px 5px", minWidth: "16px", textAlign: "center",
           }
         }, `×${count}`)
       );
     };
 
-    // Pull animation
+    // Pull animation - 2 phases: results then enhance summary
     const PullReveal = ({ results, onClose }) => {
       const [revealedCount, setRevealedCount] = useState(0);
       const [showAll, setShowAll] = useState(false);
+      const [phase, setPhase] = useState("pull"); // "pull" or "enhance"
+
+      const enhancedPets = useMemo(() => {
+        const map = {};
+        results.forEach((r) => {
+          if (r.leveledUp) {
+            const key = `${r.grade}_${r.idx}`;
+            if (!map[key]) {
+              map[key] = { grade: r.grade, idx: r.idx, levels: [] };
+            }
+            map[key].levels.push(r.newLevel);
+          }
+        });
+        // Sort levels and show final level with count
+        return Object.values(map).map((p) => ({
+          ...p,
+          finalLevel: Math.max(...p.levels),
+          count: p.levels.length,
+        }));
+      }, [results]);
 
       useEffect(() => {
-        if (showAll) return;
+        if (phase !== "pull" || showAll) return;
         if (revealedCount < results.length) {
           const t = setTimeout(() => setRevealedCount((c) => c + 1), 200);
           return () => clearTimeout(t);
         }
-      }, [revealedCount, results.length, showAll]);
+      }, [revealedCount, results.length, showAll, phase]);
 
       const handleClick = () => {
-        if (revealedCount < results.length) {
-          setShowAll(true);
-          setRevealedCount(results.length);
+        if (phase === "pull") {
+          if (revealedCount < results.length) {
+            setShowAll(true);
+            setRevealedCount(results.length);
+          } else if (enhancedPets.length > 0) {
+            setPhase("enhance");
+          } else {
+            onClose();
+          }
         } else {
           onClose();
         }
       };
 
       const displayed = showAll ? results : results.slice(0, revealedCount);
+
+      if (phase === "enhance") {
+        return React.createElement("div", {
+          onClick: handleClick,
+          style: {
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.88)", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: "20px",
+          }
+        },
+          React.createElement("div", {
+            style: { color: "#f6e05e", fontSize: "18px", fontWeight: 700, fontFamily: "'Noto Sans KR', sans-serif" }
+          }, "⬆ 강화 결과"),
+          React.createElement("div", {
+            style: { display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "center", maxWidth: "420px", padding: "0 16px" }
+          },
+            ...enhancedPets.map((p, i) => {
+              const c = GRADE_COLORS[p.grade];
+              const maxEnh = MAX_ENHANCE[p.grade];
+              const isMax = p.finalLevel >= maxEnh;
+              return React.createElement("div", {
+                key: i,
+                style: {
+                  animation: "popIn 0.4s ease-out",
+                  animationDelay: `${i * 0.1}s`,
+                  animationFillMode: "both",
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  padding: "10px 14px", borderRadius: "12px",
+                  background: isMax
+                    ? `linear-gradient(145deg, rgba(72,187,120,0.15), rgba(72,187,120,0.05))`
+                    : `linear-gradient(145deg, ${c.bg}22, ${c.bg}44)`,
+                  border: isMax ? "1px solid rgba(72,187,120,0.4)" : `1px solid ${c.bg}55`,
+                  minWidth: "90px",
+                }
+              },
+                React.createElement("div", { style: { fontSize: "36px", lineHeight: 1 } }, PET_EMOJIS[p.grade][p.idx]),
+                React.createElement("div", {
+                  style: { fontSize: "15px", color: c.text, marginTop: "4px", fontWeight: 600 }
+                }, PET_NAMES[p.grade][p.idx]),
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "4px", marginTop: "6px" }
+                },
+                  React.createElement(GradeBadge, { grade: p.grade, size: "xs" }),
+                  React.createElement("span", {
+                    style: {
+                      fontSize: "15px", fontWeight: 800,
+                      color: isMax ? "#48bb78" : "#f6e05e",
+                    }
+                  }, isMax ? `Lv.MAX!` : `Lv.${p.finalLevel}`)
+                ),
+                isMax && React.createElement("div", {
+                  style: {
+                    marginTop: "4px", fontSize: "15px", fontWeight: 700,
+                    color: "#48bb78", animation: "pulse 1s ease-in-out infinite",
+                  }
+                }, "✨ 합성 가능!")
+              );
+            })
+          ),
+          React.createElement("div", {
+            style: { color: "#a0aec0", fontSize: "15px", fontFamily: "'Noto Sans KR', sans-serif" }
+          }, "탭하여 닫기")
+        );
+      }
 
       return React.createElement("div", {
         onClick: handleClick,
@@ -211,19 +428,22 @@
         },
           ...displayed.map((r, i) =>
             React.createElement("div", { key: i, style: { animation: "popIn 0.3s ease-out" } },
-              React.createElement(PetCard, { grade: r.grade, idx: r.idx, compact: true })
+              React.createElement(PetCard, { grade: r.grade, idx: r.idx, compact: true, hideEnhance: true })
             )
           )
         ),
         React.createElement("div", {
-          style: { color: "#a0aec0", fontSize: "13px", fontFamily: "'Noto Sans KR', sans-serif" }
-        }, revealedCount >= results.length ? "탭하여 닫기" : "탭하여 스킵")
+          style: { color: "#a0aec0", fontSize: "15px", fontFamily: "'Noto Sans KR', sans-serif" }
+        }, revealedCount >= results.length
+          ? (enhancedPets.length > 0 ? "탭하여 강화 결과 보기" : "탭하여 닫기")
+          : "탭하여 스킵")
       );
     };
 
     // Fusion/Craft result reveal
-    const FusionReveal = ({ grade, idx, onClose }) => {
+    const FusionReveal = ({ grade, idx, onClose, autoSummary }) => {
       const c = GRADE_COLORS[grade];
+      const isAuto = !!autoSummary;
       return React.createElement("div", {
         onClick: onClose,
         style: {
@@ -233,15 +453,113 @@
         }
       },
         React.createElement("div", {
-          style: { color: c.accent, fontSize: "14px", fontWeight: 600, fontFamily: "'Noto Sans KR', sans-serif" }
-        }, grade === "SS" ? "✨ SS 제작 완료!" : "✨ 합성 완료!"),
-        React.createElement("div", {
+          style: { color: isAuto ? "#f6e05e" : c.accent, fontSize: "15px", fontWeight: 600, fontFamily: "'Noto Sans KR', sans-serif" }
+        }, grade === "SS" ? "✨ SS 제작 완료!" : isAuto ? "⚡ 자동합성 완료!" : "✨ 합성 완료!"),
+        // Auto summary stats
+        isAuto && React.createElement("div", {
+          style: {
+            display: "flex", gap: "12px", justifyContent: "center",
+            padding: "8px 16px", borderRadius: "10px",
+            background: "rgba(246,224,94,0.08)", border: "1px solid rgba(246,224,94,0.15)",
+          }
+        },
+          autoSummary.cToB > 0 && React.createElement("div", {
+            style: { textAlign: "center" }
+          },
+            React.createElement("div", { style: { fontSize: "13px", color: "#a0aec0" } }, "C → B"),
+            React.createElement("div", { style: { fontSize: "16px", fontWeight: 900, color: GRADE_COLORS.B.accent } }, `×${autoSummary.cToB}`)
+          ),
+          autoSummary.bToA > 0 && React.createElement("div", {
+            style: { textAlign: "center" }
+          },
+            React.createElement("div", { style: { fontSize: "13px", color: "#a0aec0" } }, "B → A"),
+            React.createElement("div", { style: { fontSize: "16px", fontWeight: 900, color: GRADE_COLORS.A.accent } }, `×${autoSummary.bToA}`)
+          ),
+          React.createElement("div", {
+            style: { textAlign: "center" }
+          },
+            React.createElement("div", { style: { fontSize: "13px", color: "#a0aec0" } }, "먹이"),
+            React.createElement("div", { style: { fontSize: "16px", fontWeight: 900, color: "#68d391" } }, `+${autoSummary.totalFeed} 🍖`)
+          )
+        ),
+        // Auto fusion acquired pets
+        // Auto fusion acquired pets
+        isAuto && autoSummary.results && React.createElement("div", {
+          style: { display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center", maxWidth: "420px", padding: "0 12px" }
+        },
+          ...autoSummary.results.map((r, i) =>
+            React.createElement("div", {
+              key: i,
+              style: { animation: "popIn 0.3s ease-out", animationDelay: `${i * 0.05}s`, animationFillMode: "both", position: "relative" }
+            },
+              React.createElement(PetCard, { grade: r.to, idx: r.idx, compact: true, hideEnhance: true }),
+              r.leveledUp && React.createElement("div", {
+                style: {
+                  position: "absolute", bottom: "-2px", left: "50%", transform: "translateX(-50%)",
+                  fontSize: "9px", fontWeight: 800, color: "#f6e05e",
+                  background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: "4px",
+                  whiteSpace: "nowrap",
+                }
+              }, `⬆ Lv.${r.newLevel}`)
+            )
+          )
+        ),
+        // Auto fusion level-up summary
+        isAuto && autoSummary.results && (() => {
+          const levelUps = autoSummary.results.filter((r) => r.leveledUp);
+          if (levelUps.length === 0) return null;
+          // Aggregate: group by pet, show highest level reached
+          const grouped = {};
+          levelUps.forEach((r) => {
+            const key = `${r.to}_${r.idx}`;
+            if (!grouped[key] || r.newLevel > grouped[key].newLevel) {
+              grouped[key] = r;
+            }
+          });
+          const entries = Object.values(grouped);
+          return React.createElement("div", {
+            style: {
+              padding: "8px 14px", borderRadius: "10px",
+              background: "rgba(246,224,94,0.08)", border: "1px solid rgba(246,224,94,0.15)",
+              maxWidth: "380px", width: "100%",
+            }
+          },
+            React.createElement("div", {
+              style: { fontSize: "11px", color: "#f6e05e", fontWeight: 700, marginBottom: "6px", textAlign: "center" }
+            }, `⬆ 강화 ${levelUps.length}회 발생`),
+            React.createElement("div", {
+              style: { display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center" }
+            },
+              ...entries.map((r, i) => {
+                const rc = GRADE_COLORS[r.to];
+                const maxEnh = MAX_ENHANCE[r.to];
+                const isMax = r.newLevel >= maxEnh;
+                return React.createElement("div", {
+                  key: i,
+                  style: {
+                    display: "flex", alignItems: "center", gap: "4px",
+                    padding: "3px 8px", borderRadius: "6px",
+                    background: isMax ? "rgba(72,187,120,0.15)" : "rgba(255,255,255,0.05)",
+                    border: isMax ? "1px solid rgba(72,187,120,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                  }
+                },
+                  React.createElement("span", { style: { fontSize: "16px" } }, PET_EMOJIS[r.to][r.idx]),
+                  React.createElement("span", { style: { fontSize: "11px", color: rc.text, fontWeight: 700 } }, PET_NAMES[r.to][r.idx]),
+                  React.createElement("span", {
+                    style: { fontSize: "10px", fontWeight: 800, color: isMax ? "#48bb78" : "#f6e05e" }
+                  }, isMax ? " MAX" : ` +${r.newLevel}`)
+                );
+              })
+            )
+          );
+        })(),
+        !isAuto && React.createElement("div", {
           style: {
             fontSize: "72px", animation: "popIn 0.5s ease-out",
             filter: `drop-shadow(0 0 24px ${c.glow})`,
           }
         }, PET_EMOJIS[grade][idx]),
-        React.createElement("div", {
+        !isAuto && React.createElement("div", {
           style: { display: "flex", alignItems: "center", gap: "8px", fontFamily: "'Noto Sans KR', sans-serif" }
         },
           React.createElement(GradeBadge, { grade, size: "md" }),
@@ -250,7 +568,7 @@
           }, PET_NAMES[grade][idx])
         ),
         React.createElement("div", {
-          style: { color: "#718096", fontSize: "12px", marginTop: "8px", fontFamily: "'Noto Sans KR', sans-serif" }
+          style: { color: "#718096", fontSize: "15px", marginTop: "8px", fontFamily: "'Noto Sans KR', sans-serif" }
         }, "탭하여 닫기")
       );
     };
@@ -264,6 +582,8 @@
       const [tab, setTab] = useState("pull");
       const [pullResult, setPullResult] = useState(null);
       const [fusionResult, setFusionResult] = useState(null);
+      const [fusionSelect, setFusionSelect] = useState(null); // { grade, selected: [{grade,idx},...] }
+      const [petDetail, setPetDetail] = useState(null); // { grade, idx, enhance }
       const [log, setLog] = useState([]);
       const [totalPulls, setTotalPulls] = useState(0);
       const logRef = useRef(null);
@@ -282,17 +602,21 @@
         const maxEnh = MAX_ENHANCE[grade];
         const copies = [...pet.copies];
         const nonMaxIdx = copies.findIndex((c) => c.enhance < maxEnh);
+        let leveledUp = false;
+        let newLevel = 0;
 
         if (maxEnh === 0) {
           copies.push({ enhance: 0 });
         } else if (copies.length === 0) {
           copies.push({ enhance: 0 });
         } else if (nonMaxIdx >= 0) {
-          copies[nonMaxIdx] = { enhance: copies[nonMaxIdx].enhance + 1 };
+          newLevel = copies[nonMaxIdx].enhance + 1;
+          copies[nonMaxIdx] = { enhance: newLevel };
+          leveledUp = true;
         } else {
           copies.push({ enhance: 0 });
         }
-        return { ...inv, [key]: { ...pet, copies } };
+        return { inv: { ...inv, [key]: { ...pet, copies } }, leveledUp, newLevel };
       }, []);
 
       // PULL
@@ -304,8 +628,9 @@
         }
         for (let i = 0; i < count; i++) {
           const r = pullOne();
-          results.push(r);
-          newInv = addPet(r.grade, r.idx, newInv);
+          const { inv, leveledUp, newLevel } = addPet(r.grade, r.idx, newInv);
+          newInv = inv;
+          results.push({ ...r, leveledUp, newLevel });
         }
         setInventory(newInv);
         setTotalPulls((p) => p + count);
@@ -317,10 +642,38 @@
         addLog(`🎰 ${count}연차 뽑기: ${summaryStr}`);
       }, [inventory, addPet, addLog]);
 
-      // FUSION
-      const doFusion = useCallback((grade) => {
+      // FUSION - open selection modal
+      const openFusionSelect = useCallback((grade) => {
+        setFusionSelect({ grade, selected: [] });
+      }, []);
+
+      // Get available pets for fusion selection
+      const getFusionCandidates = useCallback((grade) => {
         const maxEnh = MAX_ENHANCE[grade];
+        const candidates = [];
+        PET_NAMES[grade].forEach((_, i) => {
+          const pet = inventory[`${grade}_${i}`];
+          if (maxEnh === 0) {
+            // C: all copies are candidates
+            for (let ci = 0; ci < pet.copies.length; ci++) {
+              candidates.push({ grade, idx: i, copyIdx: ci, enhance: pet.copies[ci].enhance, id: `${grade}_${i}_${ci}` });
+            }
+          } else {
+            // B, A: only maxed copies
+            pet.copies.forEach((c, ci) => {
+              if (c.enhance >= maxEnh) {
+                candidates.push({ grade, idx: i, copyIdx: ci, enhance: c.enhance, id: `${grade}_${i}_${ci}` });
+              }
+            });
+          }
+        });
+        return candidates;
+      }, [inventory]);
+
+      // Execute fusion with selected pets
+      const doFusion = useCallback((grade, selectedPets) => {
         const needed = FUSION_NEED[grade];
+        if (selectedPets.length !== needed) return;
         const nextGrade = GRADES[GRADES.indexOf(grade) + 1];
         const resultIdx = Math.floor(Math.random() * PET_NAMES[nextGrade].length);
 
@@ -329,40 +682,132 @@
           newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
         }
 
-        let toRemove = needed;
-        const petCount = PET_NAMES[grade].length;
+        // Remove selected pets - group by pet key and sort copyIdx descending to avoid index shift
+        const removeMap = {};
+        selectedPets.forEach((sp) => {
+          const key = `${sp.grade}_${sp.idx}`;
+          if (!removeMap[key]) removeMap[key] = [];
+          removeMap[key].push(sp.copyIdx);
+        });
 
-        if (maxEnh === 0) {
-          for (let i = 0; i < petCount && toRemove > 0; i++) {
-            const key = `${grade}_${i}`;
-            const pet = newInv[key];
-            const removeFromThis = Math.min(pet.copies.length, toRemove);
-            pet.copies = pet.copies.slice(removeFromThis);
-            toRemove -= removeFromThis;
-          }
-        } else {
-          for (let i = 0; i < petCount && toRemove > 0; i++) {
-            const key = `${grade}_${i}`;
-            const pet = newInv[key];
-            const newCopies = [];
-            for (const c of pet.copies) {
-              if (c.enhance >= maxEnh && toRemove > 0) {
-                toRemove--;
-              } else {
-                newCopies.push(c);
-              }
-            }
-            pet.copies = newCopies;
+        for (const [key, indices] of Object.entries(removeMap)) {
+          const pet = newInv[key];
+          const sortedIndices = [...indices].sort((a, b) => b - a);
+          for (const ci of sortedIndices) {
+            pet.copies.splice(ci, 1);
           }
         }
 
-        newInv = addPet(nextGrade, resultIdx, newInv);
+        const { inv: fusedInv } = addPet(nextGrade, resultIdx, newInv);
+        newInv = fusedInv;
         const feedGain = FEED_REWARD[grade];
         setFeed((f) => f + feedGain);
         setInventory(newInv);
+        setFusionSelect(null);
         setFusionResult({ grade: nextGrade, idx: resultIdx });
         addLog(`🔮 합성: ${grade} ×${needed} → ${nextGrade} ${PET_NAMES[nextGrade][resultIdx]} (+${feedGain} 먹이)`);
       }, [inventory, addPet, addLog]);
+
+      // AUTO FUSION (C→B, B→A chain)
+      const doAutoFusion = useCallback(() => {
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
+        }
+        let totalFeed = 0;
+        const results = [];
+
+        // Loop: keep fusing C→B then B→A until nothing left to fuse
+        let changed = true;
+        while (changed) {
+          changed = false;
+
+          // C → B (no enhance needed, just need 4 C copies)
+          while (true) {
+            let cTotal = 0;
+            PET_NAMES.C.forEach((_, i) => { cTotal += newInv[`C_${i}`].copies.length; });
+            if (cTotal < FUSION_NEED.C) break;
+
+            // Remove C copies
+            let toRemove = FUSION_NEED.C;
+            for (let i = 0; i < PET_NAMES.C.length && toRemove > 0; i++) {
+              const key = `C_${i}`;
+              const pet = newInv[key];
+              const removeCount = Math.min(pet.copies.length, toRemove);
+              pet.copies = pet.copies.slice(removeCount);
+              toRemove -= removeCount;
+            }
+
+            // Add random B
+            const resultIdx = Math.floor(Math.random() * PET_NAMES.B.length);
+            const { inv: fusedInv, leveledUp, newLevel } = addPet("B", resultIdx, newInv);
+            newInv = fusedInv;
+            totalFeed += FEED_REWARD.C;
+            results.push({ from: "C", to: "B", idx: resultIdx, leveledUp, newLevel });
+            changed = true;
+          }
+
+          // B → A (need maxed B, 3 copies)
+          while (true) {
+            let bMaxed = 0;
+            PET_NAMES.B.forEach((_, i) => {
+              bMaxed += newInv[`B_${i}`].copies.filter((c) => c.enhance >= MAX_ENHANCE.B).length;
+            });
+            if (bMaxed < FUSION_NEED.B) break;
+
+            // Remove maxed B copies
+            let toRemove = FUSION_NEED.B;
+            for (let i = 0; i < PET_NAMES.B.length && toRemove > 0; i++) {
+              const key = `B_${i}`;
+              const pet = newInv[key];
+              const newCopies = [];
+              for (const c of pet.copies) {
+                if (c.enhance >= MAX_ENHANCE.B && toRemove > 0) {
+                  toRemove--;
+                } else {
+                  newCopies.push(c);
+                }
+              }
+              pet.copies = newCopies;
+            }
+
+            // Add random A
+            const resultIdx = Math.floor(Math.random() * PET_NAMES.A.length);
+            const { inv: fusedInv, leveledUp, newLevel } = addPet("A", resultIdx, newInv);
+            newInv = fusedInv;
+            totalFeed += FEED_REWARD.B;
+            results.push({ from: "B", to: "A", idx: resultIdx, leveledUp, newLevel });
+            changed = true;
+          }
+        }
+
+        if (results.length === 0) return;
+
+        setFeed((f) => f + totalFeed);
+        setInventory(newInv);
+
+        // Show summary as fusion result
+        const cToB = results.filter((r) => r.from === "C").length;
+        const bToA = results.filter((r) => r.from === "B").length;
+        let logMsg = `⚡ 자동합성: `;
+        if (cToB > 0) logMsg += `C→B ×${cToB} `;
+        if (bToA > 0) logMsg += `B→A ×${bToA} `;
+        logMsg += `(+${totalFeed} 먹이)`;
+        addLog(logMsg);
+
+        setFusionResult({ grade: "B", idx: 0, autoSummary: { cToB, bToA, totalFeed, results } });
+      }, [inventory, addPet, addLog]);
+
+      // Check if auto fusion is possible
+      const canAutoFuse = useMemo(() => {
+        let cTotal = 0;
+        PET_NAMES.C.forEach((_, i) => { cTotal += inventory[`C_${i}`].copies.length; });
+        let bMaxed = 0;
+        PET_NAMES.B.forEach((_, i) => {
+          bMaxed += inventory[`B_${i}`].copies.filter((c) => c.enhance >= MAX_ENHANCE.B).length;
+        });
+        return cTotal >= FUSION_NEED.C || bMaxed >= FUSION_NEED.B;
+      }, [inventory]);
 
       // SS CRAFT
       const getAvailableCrafts = useCallback(() => {
@@ -401,7 +846,8 @@
         for (const key of Object.keys(newInv)) {
           newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
         }
-        newInv = addPet("S", sIdx, newInv);
+        const { inv: exchangedInv } = addPet("S", sIdx, newInv);
+        newInv = exchangedInv;
         setInventory(newInv);
         setFusionResult({ grade: "S", idx: sIdx });
         addLog(`🍖 먹이 교환: ${PET_NAMES.S[sIdx]} 획득 (-${S_EXCHANGE_COST} 먹이)`);
@@ -441,7 +887,7 @@
           },
             React.createElement("div", { style: { fontSize: "56px", marginBottom: "16px" } }, "🎰"),
             React.createElement("div", {
-              style: { fontSize: "13px", color: "#a0aec0", marginBottom: "20px" }
+              style: { fontSize: "15px", color: "#a0aec0", marginBottom: "20px" }
             }, "C(55%) · B(30%) · A(12%) · S(3%)"),
             React.createElement("div", {
               style: { display: "flex", gap: "10px", justifyContent: "center" }
@@ -451,7 +897,7 @@
                 style: {
                   padding: "12px 28px", borderRadius: "10px", border: "none",
                   background: "linear-gradient(135deg, #c05621, #dd6b20)",
-                  color: "#fff", fontSize: "14px", fontWeight: 800, cursor: "pointer",
+                  color: "#fff", fontSize: "15px", fontWeight: 800, cursor: "pointer",
                   fontFamily: "'Noto Sans KR', sans-serif",
                   boxShadow: "0 4px 15px rgba(192,86,33,0.3)",
                 }
@@ -461,7 +907,7 @@
                 style: {
                   padding: "12px 28px", borderRadius: "10px", border: "none",
                   background: "linear-gradient(135deg, #e53e3e, #fc8181)",
-                  color: "#fff", fontSize: "14px", fontWeight: 800, cursor: "pointer",
+                  color: "#fff", fontSize: "15px", fontWeight: 800, cursor: "pointer",
                   fontFamily: "'Noto Sans KR', sans-serif",
                   boxShadow: "0 4px 15px rgba(229,62,62,0.3)",
                 }
@@ -477,7 +923,7 @@
             }
           },
             React.createElement("div", {
-              style: { fontSize: "11px", fontWeight: 700, color: "#718096", marginBottom: "8px" }
+              style: { fontSize: "15px", fontWeight: 700, color: "#718096", marginBottom: "8px" }
             }, "확률 정보"),
             ...Object.entries(PULL_RATES).map(([g, r]) =>
               React.createElement("div", {
@@ -496,7 +942,7 @@
                   })
                 ),
                 React.createElement("span", {
-                  style: { fontSize: "10px", color: "#a0aec0", width: "32px", textAlign: "right" }
+                  style: { fontSize: "12px", color: "#a0aec0", width: "36px", textAlign: "right" }
                 }, `${(r * 100).toFixed(0)}%`)
               )
             )
@@ -536,7 +982,7 @@
             },
               React.createElement(GradeBadge, { grade: g, size: "sm" }),
               React.createElement("span", {
-                style: { fontSize: "12px", fontWeight: 700, color: GRADE_COLORS[g].text }
+                style: { fontSize: "15px", fontWeight: 700, color: GRADE_COLORS[g].text }
               }, `${g}등급 (${pets.reduce((a, p) => a + p.count, 0)}마리)`)
             ),
             React.createElement("div", {
@@ -547,6 +993,7 @@
                   key: `${p.idx}-${p.isMaxed}-${i}`,
                   grade: p.grade, idx: p.idx,
                   enhanceLevel: p.enhance, count: p.count, compact: true,
+                  onClick: () => setPetDetail({ grade: p.grade, idx: p.idx, enhance: p.enhance }),
                 })
               )
             )
@@ -555,7 +1002,7 @@
 
         if (sections.length === 0) {
           return React.createElement("div", {
-            style: { textAlign: "center", color: "#4a5568", padding: "40px 0", fontSize: "14px" }
+            style: { textAlign: "center", color: "#4a5568", padding: "40px 0", fontSize: "15px" }
           }, "보유한 펫이 없습니다. 뽑기를 시작해보세요!");
         }
 
@@ -600,11 +1047,11 @@
                   style: { display: "flex", alignItems: "center", gap: "6px" }
                 },
                   React.createElement(GradeBadge, { grade: g, size: "sm" }),
-                  React.createElement("span", { style: { fontSize: "12px", color: "#a0aec0" } }, "→"),
+                  React.createElement("span", { style: { fontSize: "15px", color: "#a0aec0" } }, "→"),
                   React.createElement(GradeBadge, { grade: nextG, size: "sm" })
                 ),
                 React.createElement("span", {
-                  style: { fontSize: "10px", color: "#718096" }
+                  style: { fontSize: "15px", color: "#718096" }
                 }, `${maxEnh > 0 ? "만렙 " : ""}${g} ×${needed} → 랜덤 ${nextG}`)
               ),
               React.createElement("div", {
@@ -615,10 +1062,10 @@
                     style: { display: "flex", justifyContent: "space-between", marginBottom: "4px" }
                   },
                     React.createElement("span", {
-                      style: { fontSize: "10px", color: "#a0aec0" }
+                      style: { fontSize: "15px", color: "#a0aec0" }
                     }, `${maxEnh > 0 ? "만렙 " : ""}${g} 보유`),
                     React.createElement("span", {
-                      style: { fontSize: "11px", fontWeight: 700, color: canFuse ? "#48bb78" : "#a0aec0" }
+                      style: { fontSize: "15px", fontWeight: 700, color: canFuse ? "#48bb78" : "#a0aec0" }
                     }, `${available} / ${needed}`)
                   ),
                   React.createElement("div", {
@@ -635,13 +1082,13 @@
                   )
                 ),
                 React.createElement("button", {
-                  onClick: () => canFuse && doFusion(g),
+                  onClick: () => canFuse && openFusionSelect(g),
                   disabled: !canFuse,
                   style: {
                     padding: "8px 16px", borderRadius: "8px", border: "none",
                     background: canFuse ? `linear-gradient(135deg, ${nc.bg}, ${nc.accent})` : "rgba(255,255,255,0.05)",
                     color: canFuse ? "#fff" : "#4a5568",
-                    fontSize: "12px", fontWeight: 800, cursor: canFuse ? "pointer" : "default",
+                    fontSize: "15px", fontWeight: 800, cursor: canFuse ? "pointer" : "default",
                     fontFamily: "'Noto Sans KR', sans-serif",
                     boxShadow: canFuse ? `0 4px 12px ${nc.glow}` : "none",
                     opacity: canFuse ? 1 : 0.5, flexShrink: 0,
@@ -650,6 +1097,24 @@
               )
             );
           }),
+          // Auto fusion button
+          React.createElement("button", {
+            onClick: () => canAutoFuse && doAutoFusion(),
+            disabled: !canAutoFuse,
+            style: {
+              width: "100%", padding: "12px", borderRadius: "10px", border: "none",
+              background: canAutoFuse
+                ? "linear-gradient(135deg, #d69e2e, #f6e05e)"
+                : "rgba(255,255,255,0.05)",
+              color: canAutoFuse ? "#744210" : "#4a5568",
+              fontSize: "15px", fontWeight: 900, cursor: canAutoFuse ? "pointer" : "default",
+              fontFamily: "'Noto Sans KR', sans-serif",
+              boxShadow: canAutoFuse ? "0 4px 15px rgba(214,158,46,0.3)" : "none",
+              opacity: canAutoFuse ? 1 : 0.5,
+              letterSpacing: "0.5px",
+            }
+          }, "⚡ 자동합성 (C→B→A 일괄)"),
+
           React.createElement("div", {
             style: {
               padding: "10px", borderRadius: "8px",
@@ -658,12 +1123,12 @@
             }
           },
             React.createElement("div", {
-              style: { fontSize: "10px", color: "#718096", lineHeight: 1.6 }
+              style: { fontSize: "15px", color: "#718096", lineHeight: 1.6 }
             },
               "💡 ", React.createElement("strong", null, "합성 규칙"), React.createElement("br"),
               "· C는 아무 C 4마리로 합성 가능", React.createElement("br"),
               "· B는 만렙(+1) B 3마리 필요", React.createElement("br"),
-              "· A는 만렙(+1) A 3마리 필요", React.createElement("br"),
+              "· A는 만렙(+1) A 2마리 필요", React.createElement("br"),
               "· 합성할 때마다 펫 먹이 획득!"
             )
           )
@@ -676,7 +1141,7 @@
           style: { display: "flex", flexDirection: "column", gap: "12px" }
         },
           React.createElement("div", {
-            style: { fontSize: "12px", color: "#718096", marginBottom: "4px" }
+            style: { fontSize: "15px", color: "#718096", marginBottom: "4px" }
           }, "만렙(+2) S 펫 2마리로 SS를 제작합니다"),
           ...crafts.map((recipe, i) => {
             const ssC = GRADE_COLORS.SS;
@@ -697,7 +1162,7 @@
                 style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }
               },
                 React.createElement("span", {
-                  style: { fontSize: "28px", animation: recipe.canCraft ? "glow 2s ease-in-out infinite" : "none" }
+                  style: { fontSize: "32px", animation: recipe.canCraft ? "glow 2s ease-in-out infinite" : "none" }
                 }, PET_EMOJIS.SS[recipe.result]),
                 React.createElement("div", null,
                   React.createElement("div", {
@@ -705,7 +1170,7 @@
                   },
                     React.createElement(GradeBadge, { grade: "SS", size: "sm" }),
                     React.createElement("span", {
-                      style: { fontSize: "13px", fontWeight: 800, color: ssC.text }
+                      style: { fontSize: "15px", fontWeight: 800, color: ssC.text }
                     }, PET_NAMES.SS[recipe.result])
                   )
                 )
@@ -728,15 +1193,15 @@
                       textAlign: "center",
                     }
                   },
-                    React.createElement("div", { style: { fontSize: "20px" } }, PET_EMOJIS.S[matIdx]),
+                    React.createElement("div", { style: { fontSize: "24px" } }, PET_EMOJIS.S[matIdx]),
                     React.createElement("div", {
-                      style: { fontSize: "10px", color: "#a0aec0", marginTop: "2px" }
+                      style: { fontSize: "15px", color: "#a0aec0", marginTop: "2px" }
                     }, PET_NAMES.S[matIdx]),
                     React.createElement("div", {
-                      style: { fontSize: "10px", fontWeight: 700, marginTop: "2px", color: has ? "#48bb78" : "#e53e3e" }
+                      style: { fontSize: "15px", fontWeight: 700, marginTop: "2px", color: has ? "#48bb78" : "#e53e3e" }
                     }, `만렙: ${maxed}/1 ${has ? "✓" : "✗"}`),
                     total > 0 && !has && React.createElement("div", {
-                      style: { fontSize: "9px", color: "#718096", marginTop: "1px" }
+                      style: { fontSize: "15px", color: "#718096", marginTop: "1px" }
                     }, `(보유 ${total}, 강화중)`)
                   );
                 })
@@ -751,7 +1216,7 @@
                     ? "linear-gradient(135deg, #e53e3e, #fc8181)"
                     : "rgba(255,255,255,0.05)",
                   color: recipe.canCraft ? "#fff" : "#4a5568",
-                  fontSize: "13px", fontWeight: 800, cursor: recipe.canCraft ? "pointer" : "default",
+                  fontSize: "15px", fontWeight: 800, cursor: recipe.canCraft ? "pointer" : "default",
                   fontFamily: "'Noto Sans KR', sans-serif",
                   boxShadow: recipe.canCraft ? "0 4px 15px rgba(229,62,62,0.3)" : "none",
                   opacity: recipe.canCraft ? 1 : 0.5,
@@ -774,13 +1239,13 @@
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }
           },
-            React.createElement("span", { style: { fontSize: "12px", color: "#a0aec0" } }, "보유 먹이"),
+            React.createElement("span", { style: { fontSize: "15px", color: "#a0aec0" } }, "보유 먹이"),
             React.createElement("span", {
               style: { fontSize: "20px", fontWeight: 900, color: "#68d391" }
             }, `🍖 ${feed}`)
           ),
           React.createElement("div", {
-            style: { fontSize: "11px", color: "#718096" }
+            style: { fontSize: "15px", color: "#718096" }
           }, `원하는 S 펫을 ${S_EXCHANGE_COST} 먹이로 확정 교환`),
           React.createElement("div", {
             style: { display: "flex", flexWrap: "wrap", gap: "8px" }
@@ -801,15 +1266,15 @@
                   opacity: canBuy ? 1 : 0.5, transition: "all 0.2s",
                 }
               },
-                React.createElement("div", { style: { fontSize: "24px" } }, PET_EMOJIS.S[i]),
+                React.createElement("div", { style: { fontSize: "28px" } }, PET_EMOJIS.S[i]),
                 React.createElement("div", {
-                  style: { fontSize: "9px", color: GRADE_COLORS.S.text, marginTop: "2px", fontWeight: 600 }
+                  style: { fontSize: "15px", color: GRADE_COLORS.S.text, marginTop: "2px", fontWeight: 600 }
                 }, name),
                 React.createElement("div", {
-                  style: { fontSize: "9px", color: "#718096", marginTop: "2px" }
+                  style: { fontSize: "15px", color: "#718096", marginTop: "2px" }
                 }, `보유: ${owned}`),
                 React.createElement("div", {
-                  style: { marginTop: "4px", fontSize: "10px", fontWeight: 700, color: canBuy ? "#68d391" : "#4a5568" }
+                  style: { marginTop: "4px", fontSize: "15px", fontWeight: 700, color: canBuy ? "#68d391" : "#4a5568" }
                 }, `🍖 ${S_EXCHANGE_COST}`)
               );
             })
@@ -840,10 +1305,10 @@
         },
           React.createElement("div", null,
             React.createElement("div", {
-              style: { fontSize: "16px", fontWeight: 900, letterSpacing: "-0.5px" }
+              style: { fontSize: "18px", fontWeight: 900, letterSpacing: "-0.5px" }
             }, "🐾 펫 시스템 프로토타입"),
             React.createElement("div", {
-              style: { fontSize: "10px", color: "#718096", marginTop: "2px" }
+              style: { fontSize: "15px", color: "#718096", marginTop: "2px" }
             }, `총 뽑기: ${totalPulls}회 | 보유: ${Object.values(stats).reduce((a, b) => a + b, 0)}마리`)
           ),
           React.createElement("div", {
@@ -853,9 +1318,9 @@
               border: "1px solid rgba(104,211,145,0.2)",
             }
           },
-            React.createElement("span", { style: { fontSize: "14px" } }, "🍖"),
+            React.createElement("span", { style: { fontSize: "15px" } }, "🍖"),
             React.createElement("span", {
-              style: { fontSize: "14px", fontWeight: 800, color: "#68d391" }
+              style: { fontSize: "15px", fontWeight: 800, color: "#68d391" }
             }, feed)
           )
         ),
@@ -874,7 +1339,7 @@
             },
               React.createElement(GradeBadge, { grade: g, size: "xs" }),
               React.createElement("span", {
-                style: { fontSize: "10px", color: GRADE_COLORS[g].text, marginLeft: "4px", fontWeight: 700 }
+                style: { fontSize: "12px", color: GRADE_COLORS[g].text, marginLeft: "4px", fontWeight: 700 }
               }, stats[g])
             )
           )
@@ -897,7 +1362,7 @@
                 padding: "6px 12px", borderRadius: "8px", border: "none",
                 background: tab === t.id ? `${t.color}22` : "transparent",
                 color: tab === t.id ? t.color : "#718096",
-                fontSize: "12px", fontWeight: 700, cursor: "pointer",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
                 fontFamily: "'Noto Sans KR', sans-serif",
                 transition: "all 0.2s",
                 borderBottom: tab === t.id ? `2px solid ${t.color}` : "2px solid transparent",
@@ -923,7 +1388,7 @@
         },
           React.createElement("div", {
             style: {
-              padding: "6px 16px 4px", fontSize: "10px", fontWeight: 700,
+              padding: "6px 16px 4px", fontSize: "11px", fontWeight: 700,
               color: "#4a5568", display: "flex", justifyContent: "space-between",
             }
           },
@@ -939,12 +1404,12 @@
           },
             log.length === 0
               ? React.createElement("div", {
-                  style: { fontSize: "10px", color: "#2d3748", paddingTop: "4px" }
+                  style: { fontSize: "11px", color: "#2d3748", paddingTop: "4px" }
                 }, "뽑기를 시작해보세요!")
               : log.map((l, i) =>
                   React.createElement("div", {
                     key: i,
-                    style: { fontSize: "10px", color: "#718096", lineHeight: 1.8 }
+                    style: { fontSize: "11px", color: "#718096", lineHeight: 1.8 }
                   }, l.msg)
                 )
           )
@@ -952,7 +1417,316 @@
 
         // Overlays
         pullResult && React.createElement(PullReveal, { results: pullResult, onClose: () => setPullResult(null) }),
-        fusionResult && React.createElement(FusionReveal, { grade: fusionResult.grade, idx: fusionResult.idx, onClose: () => setFusionResult(null) })
+        fusionResult && React.createElement(FusionReveal, { grade: fusionResult.grade, idx: fusionResult.idx, autoSummary: fusionResult.autoSummary, onClose: () => setFusionResult(null) }),
+
+        // Pet Detail Popup
+        petDetail && (() => {
+          const { grade, idx, enhance } = petDetail;
+          const c = GRADE_COLORS[grade];
+          const skill = PET_SKILLS[grade][idx];
+          const maxEnh = MAX_ENHANCE[grade];
+          const passiveCount = PASSIVE_COUNT[grade];
+          const isSSGrade = grade === "SS";
+
+          return React.createElement("div", {
+            onClick: (e) => { if (e.target === e.currentTarget) setPetDetail(null); },
+            style: {
+              position: "fixed", inset: 0, zIndex: 1000,
+              background: "rgba(0,0,0,0.88)", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              padding: "16px",
+            }
+          },
+            React.createElement("div", {
+              style: {
+                width: "100%", maxWidth: "360px", maxHeight: "80vh", overflowY: "auto",
+                borderRadius: "16px",
+                background: `linear-gradient(160deg, #1a202c, ${c.bg}15, #1a202c)`,
+                border: `1px solid ${c.bg}55`,
+                boxShadow: `0 0 40px ${c.glow}`,
+                padding: "20px",
+              }
+            },
+              // Header: emoji + name + grade
+              React.createElement("div", {
+                style: { textAlign: "center", marginBottom: "16px" }
+              },
+                React.createElement("div", {
+                  style: { fontSize: "56px", lineHeight: 1, marginBottom: "8px",
+                    filter: `drop-shadow(0 0 16px ${c.glow})`,
+                  }
+                }, PET_EMOJIS[grade][idx]),
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "6px", justifyContent: "center", marginBottom: "4px" }
+                },
+                  React.createElement(GradeBadge, { grade, size: "md" }),
+                  React.createElement("span", {
+                    style: { fontSize: "18px", fontWeight: 900, color: c.text }
+                  }, PET_NAMES[grade][idx])
+                ),
+                // Enhance level
+                maxEnh > 0 && React.createElement("div", {
+                  style: { fontSize: "15px", color: enhance >= maxEnh ? "#48bb78" : "#a0aec0", fontWeight: 700, marginTop: "2px" }
+                }, enhance >= maxEnh ? "✨ MAX 강화" : `강화 +${enhance} / ${maxEnh}`),
+                // SS: no enhance
+                isSSGrade && React.createElement("div", {
+                  style: { fontSize: "15px", color: "#fc8181", fontWeight: 700, marginTop: "2px" }
+                }, "👑 최고 등급")
+              ),
+
+              // Divider
+              React.createElement("div", { style: { height: "1px", background: `${c.bg}44`, marginBottom: "14px" } }),
+
+              // Active Skill
+              (() => {
+                const coolReduce = COOL_REDUCE[grade] || 0;
+                const totalCoolReduce = coolReduce * enhance;
+                const currentCool = skill.active.cooldown - totalCoolReduce;
+                const baseCool = skill.active.cooldown;
+                const isCoolReduced = totalCoolReduce > 0;
+
+                return React.createElement("div", { style: { marginBottom: "14px" } },
+                  React.createElement("div", {
+                    style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }
+                  },
+                    React.createElement("span", {
+                      style: {
+                        fontSize: "12px", fontWeight: 800, color: "#fff",
+                        background: c.accent, padding: "2px 8px", borderRadius: "4px",
+                      }
+                    }, "액티브"),
+                    React.createElement("span", {
+                      style: { fontSize: "13px", color: isCoolReduced ? "#f6e05e" : "#718096", fontWeight: isCoolReduced ? 700 : 400 }
+                    }, isCoolReduced ? `쿨타임 ${currentCool}턴 (${baseCool}→${currentCool})` : `쿨타임 ${baseCool}턴`)
+                  ),
+                  React.createElement("div", {
+                    style: {
+                      padding: "10px 12px", borderRadius: "10px",
+                      background: `${c.bg}22`, border: `1px solid ${c.bg}33`,
+                    }
+                  },
+                    React.createElement("div", {
+                      style: { fontSize: "14px", fontWeight: 800, color: c.text, marginBottom: "4px" }
+                    }, skill.active.name),
+                    React.createElement("div", {
+                      style: { fontSize: "13px", color: "#a0aec0", lineHeight: 1.5 }
+                    }, skill.active.desc),
+                    // Cooldown upgrade preview
+                    maxEnh > 0 && !isSSGrade && enhance < maxEnh && React.createElement("div", {
+                      style: { fontSize: "11px", color: "#718096", marginTop: "6px", fontStyle: "italic" }
+                    }, `다음 강화 시 쿨타임 ${currentCool}턴 → ${currentCool - coolReduce}턴`)
+                  )
+                );
+              })(),
+
+              // Passive Skills
+              passiveCount > 0 && React.createElement("div", null,
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }
+                },
+                  React.createElement("span", {
+                    style: {
+                      fontSize: "12px", fontWeight: 800, color: "#fff",
+                      background: "#6b46c1", padding: "2px 8px", borderRadius: "4px",
+                    }
+                  }, "패시브"),
+                  !isSSGrade && React.createElement("span", {
+                    style: { fontSize: "13px", color: "#718096" }
+                  }, "강화로 수치 강화")
+                ),
+                ...skill.passives.slice(0, passiveCount).map((passive, pi) => {
+                  // Enhanced logic: 
+                  // B: 1 passive, enhanced at +1 (max)
+                  // A: 1 passive, enhanced at +1 (max)
+                  // S: 2 passives, first enhanced at +1, second at +2
+                  // SS: always base (no enhance)
+                  let isEnhanced = false;
+                  if (!isSSGrade && passive.enhanced) {
+                    if (passiveCount === 1) {
+                      isEnhanced = enhance >= maxEnh;
+                    } else if (passiveCount === 2) {
+                      isEnhanced = enhance >= (pi + 1);
+                    }
+                  }
+                  const currentDesc = isEnhanced ? passive.enhanced : passive.base;
+
+                  return React.createElement("div", {
+                    key: pi,
+                    style: {
+                      padding: "10px 12px", borderRadius: "10px",
+                      background: isEnhanced ? "rgba(107,70,193,0.15)" : "rgba(107,70,193,0.06)",
+                      border: isEnhanced ? "1px solid rgba(107,70,193,0.4)" : "1px solid rgba(107,70,193,0.15)",
+                      marginBottom: "6px",
+                    }
+                  },
+                    React.createElement("div", {
+                      style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }
+                    },
+                      React.createElement("span", {
+                        style: { fontSize: "13px", fontWeight: 800, color: isEnhanced ? "#d6bcfa" : "#b4a5d0" }
+                      }, passive.name),
+                      isEnhanced && React.createElement("span", {
+                        style: {
+                          fontSize: "9px", fontWeight: 800, color: "#48bb78",
+                          background: "rgba(72,187,120,0.15)", padding: "1px 5px", borderRadius: "3px",
+                        }
+                      }, "강화됨")
+                    ),
+                    React.createElement("div", {
+                      style: { fontSize: "13px", color: isEnhanced ? "#a0aec0" : "#8a95a5", lineHeight: 1.5 }
+                    }, currentDesc),
+                    // Show upgrade preview
+                    !isSSGrade && !isEnhanced && passive.enhanced && React.createElement("div", {
+                      style: { fontSize: "11px", color: "#718096", marginTop: "4px", fontStyle: "italic" }
+                    }, `강화 +${passiveCount === 1 ? maxEnh : pi + 1} 시 → ${passive.enhanced}`)
+                  );
+                })
+              ),
+
+              // Close button
+              React.createElement("button", {
+                onClick: () => setPetDetail(null),
+                style: {
+                  width: "100%", marginTop: "14px", padding: "10px",
+                  borderRadius: "8px", border: `1px solid ${c.bg}44`,
+                  background: "rgba(255,255,255,0.03)", color: "#a0aec0",
+                  fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                }
+              }, "닫기")
+            )
+          );
+        })(),
+
+        // Fusion Selection Modal
+        fusionSelect && (() => {
+          const grade = fusionSelect.grade;
+          const needed = FUSION_NEED[grade];
+          const candidates = getFusionCandidates(grade);
+          const selected = fusionSelect.selected;
+          const nextG = GRADES[GRADES.indexOf(grade) + 1];
+          const c = GRADE_COLORS[grade];
+          const nc = GRADE_COLORS[nextG];
+
+          const toggleSelect = (candidate) => {
+            const isSelected = selected.find((s) => s.id === candidate.id);
+            if (isSelected) {
+              setFusionSelect({ ...fusionSelect, selected: selected.filter((s) => s.id !== candidate.id) });
+            } else if (selected.length < needed) {
+              setFusionSelect({ ...fusionSelect, selected: [...selected, candidate] });
+            }
+          };
+
+          const canConfirm = selected.length === needed;
+
+          return React.createElement("div", {
+            style: {
+              position: "fixed", inset: 0, zIndex: 1000,
+              background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+            }
+          },
+            React.createElement("div", {
+              style: {
+                width: "100%", maxWidth: "420px", maxHeight: "80vh",
+                display: "flex", flexDirection: "column", gap: "12px",
+                padding: "20px 16px",
+              }
+            },
+              // Header
+              React.createElement("div", {
+                style: { textAlign: "center" }
+              },
+                React.createElement("div", {
+                  style: { color: nc.accent, fontSize: "16px", fontWeight: 800, fontFamily: "'Noto Sans KR', sans-serif", marginBottom: "4px" }
+                }, "🔮 합성 재료 선택"),
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "6px", justifyContent: "center", marginBottom: "8px" }
+                },
+                  React.createElement(GradeBadge, { grade, size: "sm" }),
+                  React.createElement("span", { style: { fontSize: "15px", color: "#a0aec0" } }, `×${needed}`),
+                  React.createElement("span", { style: { fontSize: "15px", color: "#a0aec0" } }, "→"),
+                  React.createElement(GradeBadge, { grade: nextG, size: "sm" }),
+                  React.createElement("span", { style: { fontSize: "15px", color: "#a0aec0" } }, "랜덤")
+                ),
+                React.createElement("div", {
+                  style: { fontSize: "15px", color: selected.length === needed ? "#48bb78" : "#a0aec0", fontWeight: 700 }
+                }, `${selected.length} / ${needed} 선택`)
+              ),
+
+              // Candidates grid
+              React.createElement("div", {
+                style: { overflowY: "auto", flex: 1, padding: "4px" }
+              },
+                React.createElement("div", {
+                  style: { display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center" }
+                },
+                  ...candidates.map((cand) => {
+                    const isSelected = selected.find((s) => s.id === cand.id);
+                    const selIdx = selected.findIndex((s) => s.id === cand.id);
+                    const isFull = selected.length >= needed && !isSelected;
+                    return React.createElement("div", {
+                      key: cand.id,
+                      onClick: () => !isFull || isSelected ? toggleSelect(cand) : null,
+                      style: {
+                        position: "relative",
+                        cursor: isFull ? "default" : "pointer",
+                        opacity: isFull ? 0.35 : 1,
+                        transition: "all 0.2s",
+                      }
+                    },
+                      React.createElement(PetCard, {
+                        grade: cand.grade, idx: cand.idx, compact: true,
+                        enhanceLevel: MAX_ENHANCE[cand.grade],
+                        selected: !!isSelected,
+                      }),
+                      isSelected && React.createElement("div", {
+                        style: {
+                          position: "absolute", top: "-6px", left: "-6px",
+                          width: "18px", height: "18px", borderRadius: "50%",
+                          background: nc.accent, color: "#fff",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "15px", fontWeight: 900,
+                          boxShadow: `0 2px 8px ${nc.glow}`,
+                        }
+                      }, selIdx + 1)
+                    );
+                  })
+                )
+              ),
+
+              // Buttons
+              React.createElement("div", {
+                style: { display: "flex", gap: "8px", justifyContent: "center", paddingTop: "8px" }
+              },
+                React.createElement("button", {
+                  onClick: () => setFusionSelect(null),
+                  style: {
+                    padding: "10px 24px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)", color: "#a0aec0",
+                    fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                  }
+                }, "취소"),
+                React.createElement("button", {
+                  onClick: () => canConfirm && doFusion(grade, selected),
+                  disabled: !canConfirm,
+                  style: {
+                    padding: "10px 24px", borderRadius: "8px", border: "none",
+                    background: canConfirm
+                      ? `linear-gradient(135deg, ${nc.bg}, ${nc.accent})`
+                      : "rgba(255,255,255,0.05)",
+                    color: canConfirm ? "#fff" : "#4a5568",
+                    fontSize: "15px", fontWeight: 800, cursor: canConfirm ? "pointer" : "default",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                    boxShadow: canConfirm ? `0 4px 12px ${nc.glow}` : "none",
+                    opacity: canConfirm ? 1 : 0.5,
+                  }
+                }, `합성! (+${FEED_REWARD[grade]}🍖)`)
+              )
+            )
+          );
+        })()
       );
     }
 
