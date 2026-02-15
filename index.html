@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🐾 펫 시스템 프로토타입</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0e17; overflow: hidden; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 4px; }
+    @keyframes popIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes slideUp {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 15px rgba(229,62,62,0.4)); }
+      50% { filter: drop-shadow(0 0 30px rgba(229,62,62,0.7)); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useCallback, useMemo, useEffect, useRef } = React;
+
+    // ============================================================
+    // DATA & CONFIG
+    // ============================================================
+    const GRADES = ["C", "B", "A", "S", "SS"];
+    const GRADE_COLORS = {
+      C: { bg: "#4a5568", text: "#cbd5e0", glow: "rgba(74,85,104,0.4)", accent: "#718096" },
+      B: { bg: "#2b6cb0", text: "#bee3f8", glow: "rgba(43,108,176,0.4)", accent: "#63b3ed" },
+      A: { bg: "#6b46c1", text: "#d6bcfa", glow: "rgba(107,70,193,0.5)", accent: "#b794f4" },
+      S: { bg: "#c05621", text: "#feebc8", glow: "rgba(192,86,33,0.5)", accent: "#f6ad55" },
+      SS: { bg: "#e53e3e", text: "#fff5f5", glow: "rgba(229,62,62,0.6)", accent: "#fc8181" },
+    };
+
+    const PULL_RATES = { C: 0.55, B: 0.3, A: 0.12, S: 0.03 };
+    const MAX_ENHANCE = { C: 0, B: 1, A: 1, S: 2, SS: 0 };
+    const FUSION_NEED = { C: 4, B: 3, A: 3 };
+    const FEED_REWARD = { C: 1, B: 2, A: 4 };
+    const S_EXCHANGE_COST = 35;
+
+    const PET_EMOJIS = {
+      C: ["🐛", "🐌", "🐸", "🦎"],
+      B: ["🐺", "🦊", "🐻", "🦁", "🐯", "🦅", "🦈", "🐙"],
+      A: ["🐲", "🦄", "🦇", "🐍", "🦂", "🦑", "🐋", "🦏"],
+      S: ["🔥", "❄️", "⚡", "🌊", "🌑", "☀️", "💎", "🌙", "🌪️", "☄️", "🌸", "⭐"],
+      SS: ["👑", "🏆", "💫", "🔮", "⚜️", "🌟"],
+    };
+
+    const PET_NAMES = {
+      C: ["슬라임", "달팽이", "개구링", "도마뱀"],
+      B: ["늑대", "여우", "곰돌이", "사자", "호랑이", "독수리", "상어", "문어"],
+      A: ["드래곤Jr", "유니콘", "박쥐왕", "뱀파이어", "전갈왕", "크라켄", "고래왕", "코뿔소"],
+      S: ["화염수호자", "빙결정령", "번개사자", "해일용", "암흑기사", "태양조", "다이아골렘", "월광늑대", "폭풍매", "유성드래곤", "벚꽃요정", "별의수호자"],
+      SS: ["불멸의피닉스", "절대영도", "천둥제왕", "심연의군주", "천상의빛", "성운의용"],
+    };
+
+    const SS_RECIPES = [
+      { result: 0, mat1: 0, mat2: 1, name: "화염수호자 + 빙결정령" },
+      { result: 1, mat1: 2, mat2: 3, name: "번개사자 + 해일용" },
+      { result: 2, mat1: 4, mat2: 5, name: "암흑기사 + 태양조" },
+      { result: 3, mat1: 6, mat2: 7, name: "다이아골렘 + 월광늑대" },
+      { result: 4, mat1: 8, mat2: 9, name: "폭풍매 + 유성드래곤" },
+      { result: 5, mat1: 10, mat2: 11, name: "벚꽃요정 + 별의수호자" },
+    ];
+
+    function createInitialInventory() {
+      const inv = {};
+      GRADES.forEach((g) => {
+        const count = PET_NAMES[g].length;
+        for (let i = 0; i < count; i++) {
+          inv[`${g}_${i}`] = { grade: g, idx: i, copies: [] };
+        }
+      });
+      return inv;
+    }
+
+    function pullOne() {
+      const r = Math.random();
+      let cum = 0;
+      for (const [grade, rate] of Object.entries(PULL_RATES)) {
+        cum += rate;
+        if (r < cum) {
+          const idx = Math.floor(Math.random() * PET_NAMES[grade].length);
+          return { grade, idx };
+        }
+      }
+      return { grade: "C", idx: 0 };
+    }
+
+    // ============================================================
+    // COMPONENTS
+    // ============================================================
+
+    const GradeBadge = ({ grade, size = "sm" }) => {
+      const c = GRADE_COLORS[grade];
+      const sizes = { xs: "14px", sm: "18px", md: "24px", lg: "32px" };
+      const fontSizes = { xs: "8px", sm: "10px", md: "13px", lg: "16px" };
+      return React.createElement("span", {
+        style: {
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: sizes[size], height: sizes[size], borderRadius: "4px",
+          background: c.bg, color: c.text, fontSize: fontSizes[size],
+          fontWeight: 800, letterSpacing: "0.5px",
+          boxShadow: `0 0 8px ${c.glow}`,
+        }
+      }, grade);
+    };
+
+    const PetCard = ({ grade, idx, enhanceLevel = 0, count, onClick, selected, compact }) => {
+      const c = GRADE_COLORS[grade];
+      const emoji = PET_EMOJIS[grade][idx];
+      const name = PET_NAMES[grade][idx];
+      const maxEnh = MAX_ENHANCE[grade];
+      const isMax = enhanceLevel >= maxEnh;
+      const canEnhanceGrade = maxEnh > 0;
+
+      return React.createElement("div", {
+        onClick,
+        style: {
+          position: "relative",
+          width: compact ? "72px" : "88px",
+          padding: compact ? "6px 4px" : "8px 6px",
+          borderRadius: "10px",
+          background: `linear-gradient(145deg, ${c.bg}22, ${c.bg}44)`,
+          border: selected ? `2px solid ${c.accent}` : `1px solid ${c.bg}55`,
+          cursor: onClick ? "pointer" : "default",
+          transition: "all 0.2s",
+          textAlign: "center",
+          boxShadow: selected ? `0 0 16px ${c.glow}` : "none",
+          flexShrink: 0,
+        }
+      },
+        React.createElement("div", { style: { fontSize: compact ? "24px" : "32px", lineHeight: 1 } }, emoji),
+        React.createElement("div", {
+          style: { fontSize: "10px", color: c.text, marginTop: "3px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        }, name),
+        React.createElement("div", {
+          style: { display: "flex", gap: "3px", justifyContent: "center", marginTop: "3px", alignItems: "center" }
+        },
+          React.createElement(GradeBadge, { grade, size: "xs" }),
+          canEnhanceGrade && React.createElement("span", {
+            style: { fontSize: "9px", color: isMax ? "#48bb78" : "#a0aec0", fontWeight: 700 }
+          }, isMax ? "MAX" : `+${enhanceLevel}/${maxEnh}`)
+        ),
+        count > 1 && React.createElement("div", {
+          style: {
+            position: "absolute", top: "-4px", right: "-4px",
+            background: "#e53e3e", color: "#fff", fontSize: "9px", fontWeight: 800,
+            borderRadius: "8px", padding: "1px 5px", minWidth: "16px", textAlign: "center",
+          }
+        }, `×${count}`)
+      );
+    };
+
+    // Pull animation
+    const PullReveal = ({ results, onClose }) => {
+      const [revealedCount, setRevealedCount] = useState(0);
+      const [showAll, setShowAll] = useState(false);
+
+      useEffect(() => {
+        if (showAll) return;
+        if (revealedCount < results.length) {
+          const t = setTimeout(() => setRevealedCount((c) => c + 1), 200);
+          return () => clearTimeout(t);
+        }
+      }, [revealedCount, results.length, showAll]);
+
+      const handleClick = () => {
+        if (revealedCount < results.length) {
+          setShowAll(true);
+          setRevealedCount(results.length);
+        } else {
+          onClose();
+        }
+      };
+
+      const displayed = showAll ? results : results.slice(0, revealedCount);
+
+      return React.createElement("div", {
+        onClick: handleClick,
+        style: {
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.88)", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: "20px",
+        }
+      },
+        React.createElement("div", {
+          style: { color: "#fff", fontSize: "18px", fontWeight: 700, fontFamily: "'Noto Sans KR', sans-serif" }
+        }, "🎰 뽑기 결과"),
+        React.createElement("div", {
+          style: { display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", maxWidth: "420px", padding: "0 16px" }
+        },
+          ...displayed.map((r, i) =>
+            React.createElement("div", { key: i, style: { animation: "popIn 0.3s ease-out" } },
+              React.createElement(PetCard, { grade: r.grade, idx: r.idx, compact: true })
+            )
+          )
+        ),
+        React.createElement("div", {
+          style: { color: "#a0aec0", fontSize: "13px", fontFamily: "'Noto Sans KR', sans-serif" }
+        }, revealedCount >= results.length ? "탭하여 닫기" : "탭하여 스킵")
+      );
+    };
+
+    // Fusion/Craft result reveal
+    const FusionReveal = ({ grade, idx, onClose }) => {
+      const c = GRADE_COLORS[grade];
+      return React.createElement("div", {
+        onClick: onClose,
+        style: {
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: "16px",
+        }
+      },
+        React.createElement("div", {
+          style: { color: c.accent, fontSize: "14px", fontWeight: 600, fontFamily: "'Noto Sans KR', sans-serif" }
+        }, grade === "SS" ? "✨ SS 제작 완료!" : "✨ 합성 완료!"),
+        React.createElement("div", {
+          style: {
+            fontSize: "72px", animation: "popIn 0.5s ease-out",
+            filter: `drop-shadow(0 0 24px ${c.glow})`,
+          }
+        }, PET_EMOJIS[grade][idx]),
+        React.createElement("div", {
+          style: { display: "flex", alignItems: "center", gap: "8px", fontFamily: "'Noto Sans KR', sans-serif" }
+        },
+          React.createElement(GradeBadge, { grade, size: "md" }),
+          React.createElement("span", {
+            style: { color: c.text, fontSize: "20px", fontWeight: 800 }
+          }, PET_NAMES[grade][idx])
+        ),
+        React.createElement("div", {
+          style: { color: "#718096", fontSize: "12px", marginTop: "8px", fontFamily: "'Noto Sans KR', sans-serif" }
+        }, "탭하여 닫기")
+      );
+    };
+
+    // ============================================================
+    // MAIN APP
+    // ============================================================
+    function App() {
+      const [inventory, setInventory] = useState(createInitialInventory);
+      const [feed, setFeed] = useState(0);
+      const [tab, setTab] = useState("pull");
+      const [pullResult, setPullResult] = useState(null);
+      const [fusionResult, setFusionResult] = useState(null);
+      const [log, setLog] = useState([]);
+      const [totalPulls, setTotalPulls] = useState(0);
+      const logRef = useRef(null);
+
+      const addLog = useCallback((msg) => {
+        setLog((prev) => [...prev.slice(-50), { msg, time: Date.now() }]);
+      }, []);
+
+      useEffect(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+      }, [log]);
+
+      const addPet = useCallback((grade, idx, inv) => {
+        const key = `${grade}_${idx}`;
+        const pet = inv[key];
+        const maxEnh = MAX_ENHANCE[grade];
+        const copies = [...pet.copies];
+        const nonMaxIdx = copies.findIndex((c) => c.enhance < maxEnh);
+
+        if (maxEnh === 0) {
+          copies.push({ enhance: 0 });
+        } else if (copies.length === 0) {
+          copies.push({ enhance: 0 });
+        } else if (nonMaxIdx >= 0) {
+          copies[nonMaxIdx] = { enhance: copies[nonMaxIdx].enhance + 1 };
+        } else {
+          copies.push({ enhance: 0 });
+        }
+        return { ...inv, [key]: { ...pet, copies } };
+      }, []);
+
+      // PULL
+      const doPull = useCallback((count) => {
+        const results = [];
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
+        }
+        for (let i = 0; i < count; i++) {
+          const r = pullOne();
+          results.push(r);
+          newInv = addPet(r.grade, r.idx, newInv);
+        }
+        setInventory(newInv);
+        setTotalPulls((p) => p + count);
+        setPullResult(results);
+
+        const summary = {};
+        results.forEach((r) => { summary[r.grade] = (summary[r.grade] || 0) + 1; });
+        const summaryStr = Object.entries(summary).map(([g, c]) => `${g}×${c}`).join(" ");
+        addLog(`🎰 ${count}연차 뽑기: ${summaryStr}`);
+      }, [inventory, addPet, addLog]);
+
+      // FUSION
+      const doFusion = useCallback((grade) => {
+        const maxEnh = MAX_ENHANCE[grade];
+        const needed = FUSION_NEED[grade];
+        const nextGrade = GRADES[GRADES.indexOf(grade) + 1];
+        const resultIdx = Math.floor(Math.random() * PET_NAMES[nextGrade].length);
+
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
+        }
+
+        let toRemove = needed;
+        const petCount = PET_NAMES[grade].length;
+
+        if (maxEnh === 0) {
+          for (let i = 0; i < petCount && toRemove > 0; i++) {
+            const key = `${grade}_${i}`;
+            const pet = newInv[key];
+            const removeFromThis = Math.min(pet.copies.length, toRemove);
+            pet.copies = pet.copies.slice(removeFromThis);
+            toRemove -= removeFromThis;
+          }
+        } else {
+          for (let i = 0; i < petCount && toRemove > 0; i++) {
+            const key = `${grade}_${i}`;
+            const pet = newInv[key];
+            const newCopies = [];
+            for (const c of pet.copies) {
+              if (c.enhance >= maxEnh && toRemove > 0) {
+                toRemove--;
+              } else {
+                newCopies.push(c);
+              }
+            }
+            pet.copies = newCopies;
+          }
+        }
+
+        newInv = addPet(nextGrade, resultIdx, newInv);
+        const feedGain = FEED_REWARD[grade];
+        setFeed((f) => f + feedGain);
+        setInventory(newInv);
+        setFusionResult({ grade: nextGrade, idx: resultIdx });
+        addLog(`🔮 합성: ${grade} ×${needed} → ${nextGrade} ${PET_NAMES[nextGrade][resultIdx]} (+${feedGain} 먹이)`);
+      }, [inventory, addPet, addLog]);
+
+      // SS CRAFT
+      const getAvailableCrafts = useCallback(() => {
+        return SS_RECIPES.map((recipe) => {
+          const pet1 = inventory[`S_${recipe.mat1}`];
+          const pet2 = inventory[`S_${recipe.mat2}`];
+          const maxed1 = pet1.copies.filter((c) => c.enhance >= MAX_ENHANCE.S).length;
+          const maxed2 = pet2.copies.filter((c) => c.enhance >= MAX_ENHANCE.S).length;
+          return { ...recipe, maxed1, maxed2, canCraft: maxed1 >= 1 && maxed2 >= 1 };
+        });
+      }, [inventory]);
+
+      const doCraft = useCallback((recipe) => {
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
+        }
+        for (const matIdx of [recipe.mat1, recipe.mat2]) {
+          const key = `S_${matIdx}`;
+          const pet = newInv[key];
+          const maxedIdx = pet.copies.findIndex((c) => c.enhance >= MAX_ENHANCE.S);
+          if (maxedIdx >= 0) pet.copies.splice(maxedIdx, 1);
+        }
+        const ssKey = `SS_${recipe.result}`;
+        newInv[ssKey] = { ...newInv[ssKey], copies: [...newInv[ssKey].copies, { enhance: 0 }] };
+        setInventory(newInv);
+        setFusionResult({ grade: "SS", idx: recipe.result });
+        addLog(`👑 SS 제작: ${PET_NAMES.S[recipe.mat1]} + ${PET_NAMES.S[recipe.mat2]} → ${PET_NAMES.SS[recipe.result]}`);
+      }, [inventory, addLog]);
+
+      // EXCHANGE
+      const doExchange = useCallback((sIdx) => {
+        if (feed < S_EXCHANGE_COST) return;
+        setFeed((f) => f - S_EXCHANGE_COST);
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key], copies: [...newInv[key].copies] };
+        }
+        newInv = addPet("S", sIdx, newInv);
+        setInventory(newInv);
+        setFusionResult({ grade: "S", idx: sIdx });
+        addLog(`🍖 먹이 교환: ${PET_NAMES.S[sIdx]} 획득 (-${S_EXCHANGE_COST} 먹이)`);
+      }, [feed, inventory, addPet, addLog]);
+
+      // Stats
+      const stats = useMemo(() => {
+        const counts = {};
+        GRADES.forEach((g) => {
+          let total = 0;
+          PET_NAMES[g].forEach((_, i) => { total += inventory[`${g}_${i}`].copies.length; });
+          counts[g] = total;
+        });
+        return counts;
+      }, [inventory]);
+
+      const tabsData = [
+        { id: "pull", label: "🎰 뽑기", color: "#f6ad55" },
+        { id: "inventory", label: "📦 인벤토리", color: "#63b3ed" },
+        { id: "fusion", label: "🔮 합성", color: "#b794f4" },
+        { id: "craft", label: "👑 SS제작", color: "#fc8181" },
+        { id: "exchange", label: "🍖 교환소", color: "#68d391" },
+      ];
+
+      // ---- RENDER HELPERS ----
+
+      const renderPullTab = () => {
+        return React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }
+        },
+          React.createElement("div", {
+            style: {
+              width: "100%", maxWidth: "360px", padding: "24px", borderRadius: "16px",
+              background: "linear-gradient(145deg, rgba(246,173,85,0.08), rgba(246,173,85,0.02))",
+              border: "1px solid rgba(246,173,85,0.15)", textAlign: "center",
+            }
+          },
+            React.createElement("div", { style: { fontSize: "56px", marginBottom: "16px" } }, "🎰"),
+            React.createElement("div", {
+              style: { fontSize: "13px", color: "#a0aec0", marginBottom: "20px" }
+            }, "C(55%) · B(30%) · A(12%) · S(3%)"),
+            React.createElement("div", {
+              style: { display: "flex", gap: "10px", justifyContent: "center" }
+            },
+              React.createElement("button", {
+                onClick: () => doPull(1),
+                style: {
+                  padding: "12px 28px", borderRadius: "10px", border: "none",
+                  background: "linear-gradient(135deg, #c05621, #dd6b20)",
+                  color: "#fff", fontSize: "14px", fontWeight: 800, cursor: "pointer",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: "0 4px 15px rgba(192,86,33,0.3)",
+                }
+              }, "1회 뽑기"),
+              React.createElement("button", {
+                onClick: () => doPull(10),
+                style: {
+                  padding: "12px 28px", borderRadius: "10px", border: "none",
+                  background: "linear-gradient(135deg, #e53e3e, #fc8181)",
+                  color: "#fff", fontSize: "14px", fontWeight: 800, cursor: "pointer",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: "0 4px 15px rgba(229,62,62,0.3)",
+                }
+              }, "🔥 10연차")
+            )
+          ),
+          // Rates
+          React.createElement("div", {
+            style: {
+              width: "100%", maxWidth: "360px", padding: "12px",
+              borderRadius: "10px", background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.05)",
+            }
+          },
+            React.createElement("div", {
+              style: { fontSize: "11px", fontWeight: 700, color: "#718096", marginBottom: "8px" }
+            }, "확률 정보"),
+            ...Object.entries(PULL_RATES).map(([g, r]) =>
+              React.createElement("div", {
+                key: g,
+                style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }
+              },
+                React.createElement(GradeBadge, { grade: g, size: "xs" }),
+                React.createElement("div", {
+                  style: { flex: 1, height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)" }
+                },
+                  React.createElement("div", {
+                    style: {
+                      width: `${r * 100}%`, height: "100%", borderRadius: "3px",
+                      background: GRADE_COLORS[g].accent,
+                    }
+                  })
+                ),
+                React.createElement("span", {
+                  style: { fontSize: "10px", color: "#a0aec0", width: "32px", textAlign: "right" }
+                }, `${(r * 100).toFixed(0)}%`)
+              )
+            )
+          )
+        );
+      };
+
+      const renderInventoryTab = () => {
+        const sections = [...GRADES].reverse().map((g) => {
+          const pets = [];
+          PET_NAMES[g].forEach((_, i) => {
+            const pet = inventory[`${g}_${i}`];
+            if (pet.copies.length > 0) {
+              const maxEnh = MAX_ENHANCE[g];
+              if (maxEnh === 0) {
+                pets.push({ grade: g, idx: i, enhance: 0, count: pet.copies.length });
+              } else {
+                const maxedCount = pet.copies.filter((c) => c.enhance >= maxEnh).length;
+                const nonMaxCopies = pet.copies.filter((c) => c.enhance < maxEnh);
+                if (maxedCount > 0) {
+                  pets.push({ grade: g, idx: i, enhance: maxEnh, count: maxedCount, isMaxed: true });
+                }
+                if (nonMaxCopies.length > 0) {
+                  pets.push({ grade: g, idx: i, enhance: nonMaxCopies[0].enhance, count: nonMaxCopies.length, isMaxed: false });
+                }
+              }
+            }
+          });
+          if (pets.length === 0) return null;
+          return React.createElement("div", { key: g },
+            React.createElement("div", {
+              style: {
+                display: "flex", alignItems: "center", gap: "6px",
+                marginBottom: "8px", paddingBottom: "4px",
+                borderBottom: `1px solid ${GRADE_COLORS[g].bg}33`,
+              }
+            },
+              React.createElement(GradeBadge, { grade: g, size: "sm" }),
+              React.createElement("span", {
+                style: { fontSize: "12px", fontWeight: 700, color: GRADE_COLORS[g].text }
+              }, `${g}등급 (${pets.reduce((a, p) => a + p.count, 0)}마리)`)
+            ),
+            React.createElement("div", {
+              style: { display: "flex", flexWrap: "wrap", gap: "6px" }
+            },
+              ...pets.map((p, i) =>
+                React.createElement(PetCard, {
+                  key: `${p.idx}-${p.isMaxed}-${i}`,
+                  grade: p.grade, idx: p.idx,
+                  enhanceLevel: p.enhance, count: p.count, compact: true,
+                })
+              )
+            )
+          );
+        }).filter(Boolean);
+
+        if (sections.length === 0) {
+          return React.createElement("div", {
+            style: { textAlign: "center", color: "#4a5568", padding: "40px 0", fontSize: "14px" }
+          }, "보유한 펫이 없습니다. 뽑기를 시작해보세요!");
+        }
+
+        return React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: "16px" }
+        }, ...sections);
+      };
+
+      const renderFusionTab = () => {
+        return React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: "16px" }
+        },
+          ...["C", "B", "A"].map((g) => {
+            const nextG = GRADES[GRADES.indexOf(g) + 1];
+            const maxEnh = MAX_ENHANCE[g];
+            const needed = FUSION_NEED[g];
+            const c = GRADE_COLORS[g];
+            const nc = GRADE_COLORS[nextG];
+
+            let available = 0;
+            if (maxEnh === 0) {
+              PET_NAMES[g].forEach((_, i) => { available += inventory[`${g}_${i}`].copies.length; });
+            } else {
+              PET_NAMES[g].forEach((_, i) => {
+                available += inventory[`${g}_${i}`].copies.filter((cp) => cp.enhance >= maxEnh).length;
+              });
+            }
+            const canFuse = available >= needed;
+
+            return React.createElement("div", {
+              key: g,
+              style: {
+                padding: "14px", borderRadius: "12px",
+                background: `linear-gradient(145deg, ${c.bg}15, ${nc.bg}10)`,
+                border: `1px solid ${c.bg}33`,
+              }
+            },
+              React.createElement("div", {
+                style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }
+              },
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "6px" }
+                },
+                  React.createElement(GradeBadge, { grade: g, size: "sm" }),
+                  React.createElement("span", { style: { fontSize: "12px", color: "#a0aec0" } }, "→"),
+                  React.createElement(GradeBadge, { grade: nextG, size: "sm" })
+                ),
+                React.createElement("span", {
+                  style: { fontSize: "10px", color: "#718096" }
+                }, `${maxEnh > 0 ? "만렙 " : ""}${g} ×${needed} → 랜덤 ${nextG}`)
+              ),
+              React.createElement("div", {
+                style: { display: "flex", alignItems: "center", gap: "8px" }
+              },
+                React.createElement("div", { style: { flex: 1 } },
+                  React.createElement("div", {
+                    style: { display: "flex", justifyContent: "space-between", marginBottom: "4px" }
+                  },
+                    React.createElement("span", {
+                      style: { fontSize: "10px", color: "#a0aec0" }
+                    }, `${maxEnh > 0 ? "만렙 " : ""}${g} 보유`),
+                    React.createElement("span", {
+                      style: { fontSize: "11px", fontWeight: 700, color: canFuse ? "#48bb78" : "#a0aec0" }
+                    }, `${available} / ${needed}`)
+                  ),
+                  React.createElement("div", {
+                    style: { height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)" }
+                  },
+                    React.createElement("div", {
+                      style: {
+                        width: `${Math.min(100, (available / needed) * 100)}%`,
+                        height: "100%", borderRadius: "3px",
+                        background: canFuse ? "#48bb78" : c.accent,
+                        transition: "width 0.3s",
+                      }
+                    })
+                  )
+                ),
+                React.createElement("button", {
+                  onClick: () => canFuse && doFusion(g),
+                  disabled: !canFuse,
+                  style: {
+                    padding: "8px 16px", borderRadius: "8px", border: "none",
+                    background: canFuse ? `linear-gradient(135deg, ${nc.bg}, ${nc.accent})` : "rgba(255,255,255,0.05)",
+                    color: canFuse ? "#fff" : "#4a5568",
+                    fontSize: "12px", fontWeight: 800, cursor: canFuse ? "pointer" : "default",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                    boxShadow: canFuse ? `0 4px 12px ${nc.glow}` : "none",
+                    opacity: canFuse ? 1 : 0.5, flexShrink: 0,
+                  }
+                }, `합성 (+${FEED_REWARD[g]}🍖)`)
+              )
+            );
+          }),
+          React.createElement("div", {
+            style: {
+              padding: "10px", borderRadius: "8px",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)",
+            }
+          },
+            React.createElement("div", {
+              style: { fontSize: "10px", color: "#718096", lineHeight: 1.6 }
+            },
+              "💡 ", React.createElement("strong", null, "합성 규칙"), React.createElement("br"),
+              "· C는 아무 C 4마리로 합성 가능", React.createElement("br"),
+              "· B는 만렙(+1) B 3마리 필요", React.createElement("br"),
+              "· A는 만렙(+1) A 3마리 필요", React.createElement("br"),
+              "· 합성할 때마다 펫 먹이 획득!"
+            )
+          )
+        );
+      };
+
+      const renderCraftTab = () => {
+        const crafts = getAvailableCrafts();
+        return React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: "12px" }
+        },
+          React.createElement("div", {
+            style: { fontSize: "12px", color: "#718096", marginBottom: "4px" }
+          }, "만렙(+2) S 펫 2마리로 SS를 제작합니다"),
+          ...crafts.map((recipe, i) => {
+            const ssC = GRADE_COLORS.SS;
+            return React.createElement("div", {
+              key: i,
+              style: {
+                padding: "14px", borderRadius: "12px",
+                background: recipe.canCraft
+                  ? "linear-gradient(145deg, rgba(229,62,62,0.1), rgba(229,62,62,0.03))"
+                  : "rgba(255,255,255,0.02)",
+                border: recipe.canCraft
+                  ? "1px solid rgba(229,62,62,0.3)"
+                  : "1px solid rgba(255,255,255,0.05)",
+              }
+            },
+              // Result header
+              React.createElement("div", {
+                style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }
+              },
+                React.createElement("span", {
+                  style: { fontSize: "28px", animation: recipe.canCraft ? "glow 2s ease-in-out infinite" : "none" }
+                }, PET_EMOJIS.SS[recipe.result]),
+                React.createElement("div", null,
+                  React.createElement("div", {
+                    style: { display: "flex", alignItems: "center", gap: "4px" }
+                  },
+                    React.createElement(GradeBadge, { grade: "SS", size: "sm" }),
+                    React.createElement("span", {
+                      style: { fontSize: "13px", fontWeight: 800, color: ssC.text }
+                    }, PET_NAMES.SS[recipe.result])
+                  )
+                )
+              ),
+              // Materials
+              React.createElement("div", {
+                style: { display: "flex", gap: "8px", marginBottom: "10px" }
+              },
+                ...[recipe.mat1, recipe.mat2].map((matIdx, mi) => {
+                  const pet = inventory[`S_${matIdx}`];
+                  const maxed = pet.copies.filter((c) => c.enhance >= MAX_ENHANCE.S).length;
+                  const total = pet.copies.length;
+                  const has = maxed >= 1;
+                  return React.createElement("div", {
+                    key: mi,
+                    style: {
+                      flex: 1, padding: "8px", borderRadius: "8px",
+                      background: has ? "rgba(72,187,120,0.1)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${has ? "rgba(72,187,120,0.3)" : "rgba(255,255,255,0.05)"}`,
+                      textAlign: "center",
+                    }
+                  },
+                    React.createElement("div", { style: { fontSize: "20px" } }, PET_EMOJIS.S[matIdx]),
+                    React.createElement("div", {
+                      style: { fontSize: "10px", color: "#a0aec0", marginTop: "2px" }
+                    }, PET_NAMES.S[matIdx]),
+                    React.createElement("div", {
+                      style: { fontSize: "10px", fontWeight: 700, marginTop: "2px", color: has ? "#48bb78" : "#e53e3e" }
+                    }, `만렙: ${maxed}/1 ${has ? "✓" : "✗"}`),
+                    total > 0 && !has && React.createElement("div", {
+                      style: { fontSize: "9px", color: "#718096", marginTop: "1px" }
+                    }, `(보유 ${total}, 강화중)`)
+                  );
+                })
+              ),
+              // Craft button
+              React.createElement("button", {
+                onClick: () => recipe.canCraft && doCraft(recipe),
+                disabled: !recipe.canCraft,
+                style: {
+                  width: "100%", padding: "10px", borderRadius: "8px", border: "none",
+                  background: recipe.canCraft
+                    ? "linear-gradient(135deg, #e53e3e, #fc8181)"
+                    : "rgba(255,255,255,0.05)",
+                  color: recipe.canCraft ? "#fff" : "#4a5568",
+                  fontSize: "13px", fontWeight: 800, cursor: recipe.canCraft ? "pointer" : "default",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: recipe.canCraft ? "0 4px 15px rgba(229,62,62,0.3)" : "none",
+                  opacity: recipe.canCraft ? 1 : 0.5,
+                }
+              }, recipe.canCraft ? "👑 SS 제작!" : "재료 부족")
+            );
+          })
+        );
+      };
+
+      const renderExchangeTab = () => {
+        return React.createElement("div", {
+          style: { display: "flex", flexDirection: "column", gap: "12px" }
+        },
+          React.createElement("div", {
+            style: {
+              padding: "12px", borderRadius: "10px",
+              background: "linear-gradient(145deg, rgba(104,211,145,0.08), rgba(104,211,145,0.02))",
+              border: "1px solid rgba(104,211,145,0.15)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }
+          },
+            React.createElement("span", { style: { fontSize: "12px", color: "#a0aec0" } }, "보유 먹이"),
+            React.createElement("span", {
+              style: { fontSize: "20px", fontWeight: 900, color: "#68d391" }
+            }, `🍖 ${feed}`)
+          ),
+          React.createElement("div", {
+            style: { fontSize: "11px", color: "#718096" }
+          }, `원하는 S 펫을 ${S_EXCHANGE_COST} 먹이로 확정 교환`),
+          React.createElement("div", {
+            style: { display: "flex", flexWrap: "wrap", gap: "8px" }
+          },
+            ...PET_NAMES.S.map((name, i) => {
+              const canBuy = feed >= S_EXCHANGE_COST;
+              const pet = inventory[`S_${i}`];
+              const owned = pet.copies.length;
+              return React.createElement("div", {
+                key: i,
+                onClick: () => canBuy && doExchange(i),
+                style: {
+                  width: "calc(33.33% - 6px)", padding: "10px 6px",
+                  borderRadius: "10px", textAlign: "center",
+                  background: canBuy ? "rgba(192,86,33,0.08)" : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${canBuy ? "rgba(192,86,33,0.2)" : "rgba(255,255,255,0.05)"}`,
+                  cursor: canBuy ? "pointer" : "default",
+                  opacity: canBuy ? 1 : 0.5, transition: "all 0.2s",
+                }
+              },
+                React.createElement("div", { style: { fontSize: "24px" } }, PET_EMOJIS.S[i]),
+                React.createElement("div", {
+                  style: { fontSize: "9px", color: GRADE_COLORS.S.text, marginTop: "2px", fontWeight: 600 }
+                }, name),
+                React.createElement("div", {
+                  style: { fontSize: "9px", color: "#718096", marginTop: "2px" }
+                }, `보유: ${owned}`),
+                React.createElement("div", {
+                  style: { marginTop: "4px", fontSize: "10px", fontWeight: 700, color: canBuy ? "#68d391" : "#4a5568" }
+                }, `🍖 ${S_EXCHANGE_COST}`)
+              );
+            })
+          )
+        );
+      };
+
+      // ---- MAIN RENDER ----
+      return React.createElement("div", {
+        style: {
+          height: "100vh", width: "100vw",
+          background: "linear-gradient(180deg, #0a0e17 0%, #131a2e 50%, #0d1320 100%)",
+          fontFamily: "'Noto Sans KR', -apple-system, sans-serif",
+          color: "#e2e8f0",
+          display: "flex", flexDirection: "column",
+          maxWidth: "480px", margin: "0 auto",
+          position: "relative",
+        }
+      },
+        // Header
+        React.createElement("div", {
+          style: {
+            padding: "12px 16px",
+            background: "linear-gradient(90deg, rgba(99,179,237,0.08), rgba(183,148,244,0.08), rgba(252,129,129,0.08))",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }
+        },
+          React.createElement("div", null,
+            React.createElement("div", {
+              style: { fontSize: "16px", fontWeight: 900, letterSpacing: "-0.5px" }
+            }, "🐾 펫 시스템 프로토타입"),
+            React.createElement("div", {
+              style: { fontSize: "10px", color: "#718096", marginTop: "2px" }
+            }, `총 뽑기: ${totalPulls}회 | 보유: ${Object.values(stats).reduce((a, b) => a + b, 0)}마리`)
+          ),
+          React.createElement("div", {
+            style: {
+              display: "flex", gap: "6px", alignItems: "center",
+              background: "rgba(104,211,145,0.1)", padding: "4px 10px", borderRadius: "8px",
+              border: "1px solid rgba(104,211,145,0.2)",
+            }
+          },
+            React.createElement("span", { style: { fontSize: "14px" } }, "🍖"),
+            React.createElement("span", {
+              style: { fontSize: "14px", fontWeight: 800, color: "#68d391" }
+            }, feed)
+          )
+        ),
+
+        // Grade summary
+        React.createElement("div", {
+          style: { display: "flex", padding: "6px 16px", gap: "4px", background: "rgba(0,0,0,0.2)" }
+        },
+          ...GRADES.map((g) =>
+            React.createElement("div", {
+              key: g,
+              style: {
+                flex: 1, textAlign: "center", padding: "3px",
+                borderRadius: "6px", background: `${GRADE_COLORS[g].bg}22`,
+              }
+            },
+              React.createElement(GradeBadge, { grade: g, size: "xs" }),
+              React.createElement("span", {
+                style: { fontSize: "10px", color: GRADE_COLORS[g].text, marginLeft: "4px", fontWeight: 700 }
+              }, stats[g])
+            )
+          )
+        ),
+
+        // Tab bar
+        React.createElement("div", {
+          style: {
+            display: "flex", padding: "8px 12px", gap: "4px",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            overflowX: "auto",
+          }
+        },
+          ...tabsData.map((t) =>
+            React.createElement("button", {
+              key: t.id,
+              onClick: () => setTab(t.id),
+              style: {
+                flex: "0 0 auto",
+                padding: "6px 12px", borderRadius: "8px", border: "none",
+                background: tab === t.id ? `${t.color}22` : "transparent",
+                color: tab === t.id ? t.color : "#718096",
+                fontSize: "12px", fontWeight: 700, cursor: "pointer",
+                fontFamily: "'Noto Sans KR', sans-serif",
+                transition: "all 0.2s",
+                borderBottom: tab === t.id ? `2px solid ${t.color}` : "2px solid transparent",
+              }
+            }, t.label)
+          )
+        ),
+
+        // Content
+        React.createElement("div", {
+          style: { flex: 1, padding: "12px 16px", overflowY: "auto" }
+        },
+          tab === "pull" && renderPullTab(),
+          tab === "inventory" && renderInventoryTab(),
+          tab === "fusion" && renderFusionTab(),
+          tab === "craft" && renderCraftTab(),
+          tab === "exchange" && renderExchangeTab()
+        ),
+
+        // Activity log
+        React.createElement("div", {
+          style: { borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)" }
+        },
+          React.createElement("div", {
+            style: {
+              padding: "6px 16px 4px", fontSize: "10px", fontWeight: 700,
+              color: "#4a5568", display: "flex", justifyContent: "space-between",
+            }
+          },
+            React.createElement("span", null, "활동 로그"),
+            log.length > 0 && React.createElement("span", {
+              onClick: () => setLog([]),
+              style: { cursor: "pointer", color: "#718096" }
+            }, "지우기")
+          ),
+          React.createElement("div", {
+            ref: logRef,
+            style: { height: "64px", overflowY: "auto", padding: "0 16px 8px" }
+          },
+            log.length === 0
+              ? React.createElement("div", {
+                  style: { fontSize: "10px", color: "#2d3748", paddingTop: "4px" }
+                }, "뽑기를 시작해보세요!")
+              : log.map((l, i) =>
+                  React.createElement("div", {
+                    key: i,
+                    style: { fontSize: "10px", color: "#718096", lineHeight: 1.8 }
+                  }, l.msg)
+                )
+          )
+        ),
+
+        // Overlays
+        pullResult && React.createElement(PullReveal, { results: pullResult, onClose: () => setPullResult(null) }),
+        fusionResult && React.createElement(FusionReveal, { grade: fusionResult.grade, idx: fusionResult.idx, onClose: () => setFusionResult(null) })
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+  </script>
+</body>
+</html>
