@@ -576,7 +576,7 @@
     // ============================================================
     // MAIN APP
     // ============================================================
-    function App() {
+    function FusionApp() {
       const [inventory, setInventory] = useState(createInitialInventory);
       const [feed, setFeed] = useState(0);
       const [tab, setTab] = useState("pull");
@@ -1298,12 +1298,10 @@
       // ---- MAIN RENDER ----
       return React.createElement("div", {
         style: {
-          height: "100vh", width: "100vw",
-          background: "linear-gradient(180deg, #0a0e17 0%, #131a2e 50%, #0d1320 100%)",
+          height: "100%", width: "100%",
           fontFamily: "'Noto Sans KR', -apple-system, sans-serif",
           color: "#e2e8f0",
           display: "flex", flexDirection: "column",
-          maxWidth: "480px", margin: "0 auto",
           position: "relative",
         }
       },
@@ -1740,6 +1738,780 @@
             )
           );
         })()
+      );
+    }
+
+    // ============================================================
+    // SHARD VERSION (조각 버전)
+    // ============================================================
+
+    const SHARD_GRADES = ["B", "A", "S", "SS"];
+    const SHARD_PULL_RATES = { B: 0.55, A: 0.30, S: 0.12, SS: 0.03 };
+
+    const SHARD_PET_EMOJIS = {
+      B: ["🐺", "🦊", "🐻", "🦁", "🐯", "🦅", "🦈", "🐙"],
+      A: ["🐲", "🦄", "🦇", "🐍", "🦂", "🦑", "🐋", "🦏"],
+      S: ["🔥", "❄️", "⚡", "🌊", "🌑", "☀️"],
+      SS: ["👑", "🏆", "💫"],
+    };
+
+    const SHARD_PET_NAMES = {
+      B: ["늑대", "여우", "곰돌이", "사자", "호랑이", "독수리", "상어", "문어"],
+      A: ["드래곤Jr", "유니콘", "박쥐왕", "뱀파이어", "전갈왕", "크라켄", "고래왕", "코뿔소"],
+      S: ["화염수호자", "빙결정령", "번개사자", "해일용", "암흑기사", "태양조"],
+      SS: ["불멸의피닉스", "절대영도", "천둥제왕"],
+    };
+
+    // Shards needed: first number = unlock, then each subsequent = level up
+    // B: 10 unlock, 10 per level, max 5 → total 50 shards
+    // A: 20 unlock, 15 per level, max 5 → total 80 shards
+    // S: 40 unlock, 25 per level, max 5 → total 140 shards
+    // SS: 80 unlock, 50 per level, max 5 → total 280 shards
+    const SHARD_UNLOCK = { B: 10, A: 20, S: 40, SS: 80 };
+    const SHARD_PER_LEVEL = { B: 10, A: 15, S: 25, SS: 50 };
+    const SHARD_MAX_LEVEL = 5;
+
+    // Shards per pull (random 1~3 for lower, 1~2 for higher)
+    const SHARD_AMOUNT = { B: [2, 4], A: [2, 3], S: [1, 2], SS: [1, 1] };
+
+    const SHARD_SKILLS = {
+      B: [
+        { active: { name: "늑대의 울부짖음", desc: "3턴간 공격력 12% 증가", cooldown: 8 }, own: "보유 시 공격력 +1%", passives: [
+          { lv: 2, desc: "울부짖음 지속 중 연속 공격 시 20% 확률로 추가 타격" },
+          { lv: 4, desc: "울부짖음 종료 시 30% 확률로 지속시간 1턴 연장" }] },
+        { active: { name: "환영 돌진", desc: "적에게 공격력 150%의 데미지", cooldown: 7 }, own: "보유 시 회피율 +1%", passives: [
+          { lv: 2, desc: "피격 시 20% 확률로 환영 돌진 쿨타임 2 감소" },
+          { lv: 4, desc: "환영 돌진 킬 시 다음 피격 회피 확정" }] },
+        { active: { name: "곰의 포옹", desc: "3턴간 방어력 20% 증가", cooldown: 9 }, own: "보유 시 방어력 +1%", passives: [
+          { lv: 2, desc: "HP 50% 이하일 때 곰의 포옹 방어력 증가량 +15%" },
+          { lv: 4, desc: "곰의 포옹 지속 중 피격 시 10% 확률로 적 기절 1턴" }] },
+        { active: { name: "왕의 포효", desc: "적 전체에 공격력 80%의 데미지", cooldown: 10 }, own: "보유 시 적 공격력 -1%", passives: [
+          { lv: 2, desc: "왕의 포효 발동 시 30% 확률로 적 전체 1턴 기절" },
+          { lv: 4, desc: "기절시킨 적 수만큼 쿨타임 1씩 감소" }] },
+        { active: { name: "맹호 습격", desc: "적에게 공격력 180%의 데미지", cooldown: 8 }, own: "보유 시 치명타 데미지 +2%", passives: [
+          { lv: 2, desc: "적 HP 30% 이하일 때 맹호 습격 데미지 40% 증가" },
+          { lv: 4, desc: "맹호 습격 킬 시 즉시 쿨타임 초기화 (턴당 1회)" }] },
+        { active: { name: "급강하", desc: "적에게 공격력 160%의 데미지", cooldown: 7 }, own: "보유 시 치명타율 +1%", passives: [
+          { lv: 2, desc: "전투 시작 후 첫 급강하 치명타 확정" },
+          { lv: 4, desc: "급강하 치명타 시 다음 턴 공격력 20% 증가" }] },
+        { active: { name: "피의 광란", desc: "4턴간 공격속도 15% 증가", cooldown: 9 }, own: "보유 시 공격속도 +1%", passives: [
+          { lv: 2, desc: "피의 광란 지속 중 킬 획득 시 HP 8% 회복" },
+          { lv: 4, desc: "피의 광란 종료 시 킬 수에 비례해 쿨타임 감소" }] },
+        { active: { name: "먹물 분사", desc: "적 전체에 2턴간 명중률 15% 감소", cooldown: 10 }, own: "보유 시 회피율 +1%", passives: [
+          { lv: 2, desc: "먹물 분사 적중 시 25% 확률로 다음 피격 무효" },
+          { lv: 4, desc: "실명 상태 적 공격 시 데미지 25% 증가" }] },
+      ],
+      A: [
+        { active: { name: "화염 브레스", desc: "적 전체에 공격력 120%의 화염 데미지", cooldown: 8 }, own: "보유 시 화염 데미지 +3%", passives: [
+          { lv: 2, desc: "화염 브레스 적중 시 30% 확률로 2턴 화상" },
+          { lv: 4, desc: "화상 상태 적 3마리 이상일 때 데미지 30% 증가" }] },
+        { active: { name: "신성한 돌진", desc: "적에게 공격력 200%의 데미지 + HP 10% 회복", cooldown: 9 }, own: "보유 시 HP 회복량 +3%", passives: [
+          { lv: 2, desc: "HP 30% 이하일 때 회복량 2배" },
+          { lv: 4, desc: "HP 30% 이하일 때 쿨타임 2 감소 + 데미지 30% 증가" }] },
+        { active: { name: "암흑 폭발", desc: "적 전체에 공격력 100%의 암흑 데미지", cooldown: 7 }, own: "보유 시 암흑 데미지 +3%", passives: [
+          { lv: 2, desc: "암흑 폭발 킬 시 쿨타임 즉시 초기화 (턴당 1회)" },
+          { lv: 4, desc: "암흑 폭발 2회 연속 사용 시 데미지 50% 증가" }] },
+        { active: { name: "독아 물기", desc: "적에게 공격력 170%의 독 데미지 + 3턴 중독", cooldown: 8 }, own: "보유 시 독 데미지 +3%", passives: [
+          { lv: 2, desc: "중독 상태 적 피격 시 25% 확률로 반격" },
+          { lv: 4, desc: "중독 3턴 경과 시 독 폭발 (공격력 100% 추가 데미지)" }] },
+        { active: { name: "독침 난사", desc: "적에게 공격력 60%의 데미지 x4회", cooldown: 9 }, own: "보유 시 다단히트 데미지 +2%", passives: [
+          { lv: 2, desc: "HP 30% 이하 진입 시 1회 무적 + 쿨타임 초기화" },
+          { lv: 4, desc: "독침 난사 4타 모두 적중 시 추가 2타" }] },
+        { active: { name: "심해 포옹", desc: "적에게 공격력 180%의 데미지 + 2턴 속박", cooldown: 10 }, own: "보유 시 속박 확률 +3%", passives: [
+          { lv: 2, desc: "속박 적 공격 시 30% 확률로 같이 공격" },
+          { lv: 4, desc: "속박 종료 시 대상에게 공격력 80%의 추가 데미지" }] },
+        { active: { name: "해류 충격파", desc: "적 전체에 공격력 130%의 수속성 데미지", cooldown: 9 }, own: "보유 시 수속성 데미지 +3%", passives: [
+          { lv: 2, desc: "해류 충격파 킬 시 나머지 적에게 50% 추가 데미지" },
+          { lv: 4, desc: "해류 충격파 적중 수에 비례해 다음 쿨타임 감소" }] },
+        { active: { name: "돌진", desc: "적에게 공격력 220%의 데미지", cooldown: 10 }, own: "보유 시 공격력 +2%", passives: [
+          { lv: 2, desc: "HP 50% 이하일 때 돌진 데미지 40% 증가" },
+          { lv: 4, desc: "돌진 킬 시 HP 10% 회복 + 다음 돌진 관통" }] },
+      ],
+      S: [
+        { active: { name: "화염 심판", desc: "적 전체에 공격력 200%의 화염 데미지 + 3턴 화상", cooldown: 8 }, own: "보유 시 화염 데미지 +5%", passives: [
+          { lv: 2, desc: "피격 시 20% 확률로 공격자에게 반격 (화염 심판 30%)" },
+          { lv: 3, desc: "화상 3마리 이상일 때 화염 심판 데미지 50% 증가" },
+          { lv: 5, desc: "화상 상태 적 사망 시 인접 적에게 화상 전이" }] },
+        { active: { name: "절대영도", desc: "적 전체에 공격력 180%의 빙결 데미지 + 30% 동결", cooldown: 9 }, own: "보유 시 빙결 데미지 +5%", passives: [
+          { lv: 2, desc: "동결된 적 피격 시 25% 확률로 인접 적도 동결" },
+          { lv: 3, desc: "동결 해제 시 공격력 100%의 빙결 폭발" },
+          { lv: 5, desc: "절대영도 2회 사용마다 다음 동결 확률 100%" }] },
+        { active: { name: "천둥 강타", desc: "적에게 공격력 300%의 번개 데미지", cooldown: 7 }, own: "보유 시 번개 데미지 +5%", passives: [
+          { lv: 2, desc: "주인공 공격 시 25% 확률로 같이 공격 (40%)" },
+          { lv: 3, desc: "천둥 강타 치명타 시 다음 턴 번개 추가 50%" },
+          { lv: 5, desc: "천둥 강타 3회 사용마다 전체 공격으로 변경" }] },
+        { active: { name: "해일", desc: "적 전체에 공격력 160%의 수속성 데미지 + HP 15% 회복", cooldown: 10 }, own: "보유 시 HP 회복량 +5%", passives: [
+          { lv: 2, desc: "해일 발동 시 3턴간 매 턴 HP 3% 추가 회복" },
+          { lv: 3, desc: "회복될 때 30% 확률로 해일 쿨타임 1 감소" },
+          { lv: 5, desc: "해일 HP가 최대치 도달 시 초과분의 80% 보호막 전환" }] },
+        { active: { name: "암흑 참격", desc: "적에게 공격력 280%의 암흑 데미지 + 흡혈 20%", cooldown: 8 }, own: "보유 시 흡혈량 +3%", passives: [
+          { lv: 2, desc: "암흑 참격 킬 시 HP 15% 추가 회복" },
+          { lv: 3, desc: "암흑 참격 대상 20% 확률로 2턴 공포 (공격력 30% 감소)" },
+          { lv: 5, desc: "HP 100%일 때 암흑 참격 데미지 60% 증가" }] },
+        { active: { name: "태양 섬광", desc: "적 전체에 공격력 190%의 광속성 데미지 + 실명 2턴", cooldown: 9 }, own: "보유 시 광속성 데미지 +5%", passives: [
+          { lv: 2, desc: "미사용 3턴 경과 시 다음 데미지 50% 증가" },
+          { lv: 3, desc: "실명 적 공격 시 30% 확률로 협공" },
+          { lv: 5, desc: "태양 섬광 발동 시 실명 적 수만큼 쿨타임 감소" }] },
+      ],
+      SS: [
+        { active: { name: "불멸의 불꽃", desc: "적 전체에 공격력 350%의 화염 데미지 + 부활 1회", cooldown: 10 }, own: "보유 시 전체 데미지 +5%", passives: [
+          { lv: 2, desc: "사망 시 1회 HP 30% 부활 + 불멸의 불꽃 즉시 발동" },
+          { lv: 3, desc: "불멸의 불꽃 화상은 해제 불가 + 매 턴 데미지 10% 증가" },
+          { lv: 5, desc: "부활 발동 후 3턴간 받는 데미지 50% 감소" }] },
+        { active: { name: "빙하기", desc: "적 전체에 공격력 300%의 빙결 데미지 + 50% 동결 2턴", cooldown: 10 }, own: "보유 시 전체 데미지 +5%", passives: [
+          { lv: 2, desc: "동결 적 사망 시 인접 적 동결 전이 + 빙결 폭발" },
+          { lv: 3, desc: "빙하기 발동 후 3턴간 피격 시 공격자 30% 동결" },
+          { lv: 5, desc: "동결 적 5마리 누적 시 다음 빙하기 전체 동결 확정" }] },
+        { active: { name: "뇌제의 심판", desc: "적에게 공격력 500%의 번개 데미지 (치명타 시 2배)", cooldown: 9 }, own: "보유 시 치명타율 +5%", passives: [
+          { lv: 2, desc: "피격 시 40% 확률로 번개 반격 (공격력 80%)" },
+          { lv: 3, desc: "뇌제의 심판 3회마다 전체 공격 + 데미지 50% 증가" },
+          { lv: 5, desc: "치명타 발생 시 20% 확률로 뇌제의 심판 쿨타임 초기화" }] },
+      ],
+    };
+
+    function createShardInventory() {
+      const inv = {};
+      SHARD_GRADES.forEach((g) => {
+        SHARD_PET_NAMES[g].forEach((_, i) => {
+          inv[`${g}_${i}`] = { grade: g, idx: i, shards: 0, level: 0 };
+        });
+      });
+      return inv;
+    }
+
+    function shardPullOne() {
+      const r = Math.random();
+      let cum = 0;
+      for (const [grade, rate] of Object.entries(SHARD_PULL_RATES)) {
+        cum += rate;
+        if (r < cum) {
+          const idx = Math.floor(Math.random() * SHARD_PET_NAMES[grade].length);
+          const [minAmt, maxAmt] = SHARD_AMOUNT[grade];
+          const amount = minAmt + Math.floor(Math.random() * (maxAmt - minAmt + 1));
+          return { grade, idx, amount };
+        }
+      }
+      return { grade: "B", idx: 0, amount: 2 };
+    }
+
+    // Shard PetCard
+    const ShardPetCard = ({ grade, idx, level, shards, onClick, compact, showShards }) => {
+      const c = GRADE_COLORS[grade];
+      const emoji = SHARD_PET_EMOJIS[grade][idx];
+      const name = SHARD_PET_NAMES[grade][idx];
+      const unlocked = level > 0;
+      const unlockCost = SHARD_UNLOCK[grade];
+      const nextCost = level === 0 ? unlockCost : SHARD_PER_LEVEL[grade];
+      const isMax = level >= SHARD_MAX_LEVEL;
+      const progress = isMax ? 1 : (level === 0 ? shards / unlockCost : (shards % SHARD_PER_LEVEL[grade]) / SHARD_PER_LEVEL[grade]);
+
+      // Calculate total shards needed for current level threshold
+      const currentThreshold = level === 0 ? unlockCost : unlockCost + level * SHARD_PER_LEVEL[grade];
+      const nextThreshold = isMax ? currentThreshold : (level === 0 ? unlockCost : currentThreshold + SHARD_PER_LEVEL[grade]);
+      const shardsInLevel = isMax ? 0 : shards - (level === 0 ? 0 : unlockCost + (level - 1) * SHARD_PER_LEVEL[grade]);
+      const shardsNeeded = isMax ? 0 : nextCost;
+      const progressReal = isMax ? 1 : Math.max(0, Math.min(1, shardsInLevel / shardsNeeded));
+
+      return React.createElement("div", {
+        onClick,
+        style: {
+          position: "relative",
+          width: compact ? "80px" : "96px",
+          padding: compact ? "7px 5px" : "9px 7px",
+          borderRadius: "10px",
+          background: unlocked
+            ? `linear-gradient(145deg, ${c.bg}22, ${c.bg}44)`
+            : "linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05))",
+          border: `1px solid ${unlocked ? c.bg + "55" : "rgba(255,255,255,0.08)"}`,
+          cursor: onClick ? "pointer" : "default",
+          textAlign: "center", flexShrink: 0,
+          opacity: unlocked ? 1 : 0.6,
+        }
+      },
+        React.createElement("div", {
+          style: { fontSize: compact ? "28px" : "36px", lineHeight: 1, filter: unlocked ? "none" : "grayscale(0.7)" }
+        }, emoji),
+        React.createElement("div", {
+          style: { fontSize: "11px", color: unlocked ? c.text : "#4a5568", marginTop: "3px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        }, name),
+        // Level or locked
+        React.createElement("div", {
+          style: { display: "flex", gap: "3px", justifyContent: "center", marginTop: "3px", alignItems: "center" }
+        },
+          React.createElement(GradeBadge, { grade, size: "xs" }),
+          React.createElement("span", {
+            style: { fontSize: "10px", fontWeight: 700, color: isMax ? "#48bb78" : unlocked ? "#f6e05e" : "#4a5568" }
+          }, isMax ? "MAX" : unlocked ? `Lv.${level}` : "미해금")
+        ),
+        // Shard progress bar
+        showShards && React.createElement("div", { style: { marginTop: "4px" } },
+          React.createElement("div", {
+            style: { height: "3px", borderRadius: "2px", background: "rgba(255,255,255,0.1)" }
+          },
+            React.createElement("div", {
+              style: {
+                width: `${progressReal * 100}%`, height: "100%", borderRadius: "2px",
+                background: isMax ? "#48bb78" : unlocked ? c.accent : "#4a5568",
+                transition: "width 0.3s",
+              }
+            })
+          ),
+          React.createElement("div", {
+            style: { fontSize: "9px", color: "#718096", marginTop: "1px" }
+          }, isMax ? "만렙" : `${Math.max(0, shardsInLevel)}/${shardsNeeded}`)
+        )
+      );
+    };
+
+    // Shard Detail Popup
+    const ShardDetailPopup = ({ pet, onClose }) => {
+      if (!pet) return null;
+      const { grade, idx, level, shards } = pet;
+      const c = GRADE_COLORS[grade];
+      const skill = SHARD_SKILLS[grade][idx];
+      const unlockCost = SHARD_UNLOCK[grade];
+      const perLevel = SHARD_PER_LEVEL[grade];
+
+      return React.createElement("div", {
+        onClick: (e) => { if (e.target === e.currentTarget) onClose(); },
+        style: {
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.88)", display: "flex",
+          alignItems: "center", justifyContent: "center", padding: "16px",
+        }
+      },
+        React.createElement("div", {
+          style: {
+            width: "100%", maxWidth: "360px", maxHeight: "80vh", overflowY: "auto",
+            borderRadius: "16px",
+            background: `linear-gradient(160deg, #1a202c, ${c.bg}15, #1a202c)`,
+            border: `1px solid ${c.bg}55`,
+            boxShadow: `0 0 40px ${c.glow}`,
+            padding: "20px",
+          }
+        },
+          // Header
+          React.createElement("div", { style: { textAlign: "center", marginBottom: "16px" } },
+            React.createElement("div", {
+              style: { fontSize: "56px", lineHeight: 1, marginBottom: "8px", filter: `drop-shadow(0 0 16px ${c.glow})` }
+            }, SHARD_PET_EMOJIS[grade][idx]),
+            React.createElement("div", {
+              style: { display: "flex", alignItems: "center", gap: "6px", justifyContent: "center", marginBottom: "4px" }
+            },
+              React.createElement(GradeBadge, { grade, size: "md" }),
+              React.createElement("span", { style: { fontSize: "18px", fontWeight: 900, color: c.text } }, SHARD_PET_NAMES[grade][idx])
+            ),
+            React.createElement("div", {
+              style: { fontSize: "14px", color: level >= SHARD_MAX_LEVEL ? "#48bb78" : level > 0 ? "#f6e05e" : "#718096", fontWeight: 700 }
+            }, level >= SHARD_MAX_LEVEL ? "✨ MAX LEVEL" : level > 0 ? `Lv.${level} / ${SHARD_MAX_LEVEL}` : "🔒 미해금"),
+            React.createElement("div", {
+              style: { fontSize: "12px", color: "#718096", marginTop: "2px" }
+            }, `조각: ${shards}개`)
+          ),
+          React.createElement("div", { style: { height: "1px", background: `${c.bg}44`, marginBottom: "14px" } }),
+
+          // Own effect
+          React.createElement("div", { style: { marginBottom: "12px" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" } },
+              React.createElement("span", {
+                style: { fontSize: "11px", fontWeight: 800, color: "#fff", background: "#38a169", padding: "2px 8px", borderRadius: "4px" }
+              }, "보유효과")
+            ),
+            React.createElement("div", {
+              style: {
+                padding: "8px 12px", borderRadius: "8px",
+                background: level > 0 ? "rgba(56,161,105,0.1)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${level > 0 ? "rgba(56,161,105,0.3)" : "rgba(255,255,255,0.05)"}`,
+              }
+            },
+              React.createElement("div", {
+                style: { fontSize: "13px", color: level > 0 ? "#68d391" : "#718096" }
+              }, level > 0 ? skill.own + ` (×Lv.${level})` : skill.own + " (해금 필요)")
+            )
+          ),
+
+          // Active
+          React.createElement("div", { style: { marginBottom: "12px" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" } },
+              React.createElement("span", {
+                style: { fontSize: "11px", fontWeight: 800, color: "#fff", background: c.accent, padding: "2px 8px", borderRadius: "4px" }
+              }, "액티브"),
+              React.createElement("span", {
+                style: { fontSize: "12px", color: "#718096" }
+              }, `쿨타임 ${skill.active.cooldown - Math.floor(level / 3)}턴${level >= 3 ? ` (${skill.active.cooldown}→${skill.active.cooldown - Math.floor(level / 3)})` : ""}`)
+            ),
+            React.createElement("div", {
+              style: { padding: "8px 12px", borderRadius: "8px", background: `${c.bg}22`, border: `1px solid ${c.bg}33` }
+            },
+              React.createElement("div", { style: { fontSize: "14px", fontWeight: 800, color: c.text, marginBottom: "4px" } }, skill.active.name),
+              React.createElement("div", { style: { fontSize: "13px", color: "#a0aec0", lineHeight: 1.5 } }, skill.active.desc),
+              level < 3 && React.createElement("div", {
+                style: { fontSize: "11px", color: "#718096", marginTop: "4px", fontStyle: "italic" }
+              }, `Lv.3 도달 시 쿨타임 -1`)
+            )
+          ),
+
+          // Passives
+          skill.passives.length > 0 && React.createElement("div", null,
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" } },
+              React.createElement("span", {
+                style: { fontSize: "11px", fontWeight: 800, color: "#fff", background: "#6b46c1", padding: "2px 8px", borderRadius: "4px" }
+              }, "패시브"),
+              React.createElement("span", { style: { fontSize: "12px", color: "#718096" } }, "레벨업으로 해금")
+            ),
+            ...skill.passives.map((p, pi) => {
+              const unlocked = level >= p.lv;
+              return React.createElement("div", {
+                key: pi,
+                style: {
+                  padding: "8px 12px", borderRadius: "8px", marginBottom: "6px",
+                  background: unlocked ? "rgba(107,70,193,0.12)" : "rgba(107,70,193,0.04)",
+                  border: `1px solid ${unlocked ? "rgba(107,70,193,0.35)" : "rgba(107,70,193,0.1)"}`,
+                }
+              },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" } },
+                  React.createElement("span", {
+                    style: { fontSize: "10px", fontWeight: 800, color: unlocked ? "#d6bcfa" : "#718096", background: unlocked ? "rgba(107,70,193,0.2)" : "rgba(255,255,255,0.05)", padding: "1px 6px", borderRadius: "3px" }
+                  }, `Lv.${p.lv}`),
+                  unlocked && React.createElement("span", {
+                    style: { fontSize: "9px", fontWeight: 800, color: "#48bb78", background: "rgba(72,187,120,0.15)", padding: "1px 5px", borderRadius: "3px" }
+                  }, "해금됨")
+                ),
+                React.createElement("div", {
+                  style: { fontSize: "13px", color: unlocked ? "#a0aec0" : "#5a6577", lineHeight: 1.5 }
+                }, p.desc)
+              );
+            })
+          ),
+
+          React.createElement("button", {
+            onClick: onClose,
+            style: {
+              width: "100%", marginTop: "14px", padding: "10px", borderRadius: "8px",
+              border: `1px solid ${c.bg}44`, background: "rgba(255,255,255,0.03)",
+              color: "#a0aec0", fontSize: "13px", fontWeight: 700, cursor: "pointer",
+              fontFamily: "'Noto Sans KR', sans-serif",
+            }
+          }, "닫기")
+        )
+      );
+    };
+
+    function ShardApp() {
+      const [inventory, setInventory] = useState(createShardInventory);
+      const [universalShards, setUniversalShards] = useState(0);
+      const [tab, setTab] = useState("pull");
+      const [pullResult, setPullResult] = useState(null);
+      const [petDetail, setPetDetail] = useState(null);
+      const [totalPulls, setTotalPulls] = useState(0);
+      const [log, setLog] = useState([]);
+      const logRef = useRef(null);
+
+      const addLog = useCallback((msg) => {
+        setLog((prev) => [...prev.slice(-50), { msg, time: Date.now() }]);
+      }, []);
+
+      useEffect(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+      }, [log]);
+
+      // Add shards and handle level ups
+      const addShards = useCallback((grade, idx, amount, inv) => {
+        const key = `${grade}_${idx}`;
+        const pet = { ...inv[key] };
+        pet.shards += amount;
+        const unlockCost = SHARD_UNLOCK[grade];
+        const perLevel = SHARD_PER_LEVEL[grade];
+        let leveledUp = false;
+        let newLevel = pet.level;
+        let universalGain = 0;
+
+        // Check level ups
+        while (true) {
+          if (newLevel === 0) {
+            if (pet.shards >= unlockCost) {
+              newLevel = 1;
+              leveledUp = true;
+            } else break;
+          } else if (newLevel < SHARD_MAX_LEVEL) {
+            const threshold = unlockCost + newLevel * perLevel;
+            if (pet.shards >= threshold) {
+              newLevel++;
+              leveledUp = true;
+            } else break;
+          } else {
+            // Max level - convert excess to universal
+            const maxThreshold = unlockCost + (SHARD_MAX_LEVEL - 1) * perLevel;
+            // Already at max, keep shards at max threshold level
+            break;
+          }
+        }
+
+        // If max and has excess shards, convert to universal
+        if (newLevel >= SHARD_MAX_LEVEL) {
+          const maxShards = unlockCost + (SHARD_MAX_LEVEL - 1) * perLevel;
+          if (pet.shards > maxShards) {
+            universalGain = pet.shards - maxShards;
+            pet.shards = maxShards;
+          }
+        }
+
+        pet.level = newLevel;
+        return { inv: { ...inv, [key]: pet }, leveledUp, newLevel, universalGain };
+      }, []);
+
+      const doPull = useCallback((count) => {
+        const results = [];
+        let newInv = { ...inventory };
+        for (const key of Object.keys(newInv)) {
+          newInv[key] = { ...newInv[key] };
+        }
+        let totalUniversal = 0;
+
+        for (let i = 0; i < count; i++) {
+          const pull = shardPullOne();
+          const { inv, leveledUp, newLevel, universalGain } = addShards(pull.grade, pull.idx, pull.amount, newInv);
+          newInv = inv;
+          totalUniversal += universalGain;
+          results.push({ ...pull, leveledUp, newLevel });
+        }
+
+        setInventory(newInv);
+        if (totalUniversal > 0) setUniversalShards((u) => u + totalUniversal);
+        setTotalPulls((p) => p + count);
+        setPullResult(results);
+
+        const summary = {};
+        results.forEach((r) => { summary[r.grade] = (summary[r.grade] || 0) + 1; });
+        const summaryStr = Object.entries(summary).map(([g, c]) => `${g}×${c}`).join(" ");
+        addLog(`🎰 ${count}연차 뽑기: ${summaryStr}`);
+      }, [inventory, addShards, addLog]);
+
+      const tabsData = [
+        { id: "pull", label: "🎰 뽑기", color: "#f6ad55" },
+        { id: "collection", label: "📦 도감", color: "#63b3ed" },
+        { id: "shop", label: "🏪 상점", color: "#68d391" },
+      ];
+
+      const stats = useMemo(() => {
+        const counts = {};
+        SHARD_GRADES.forEach((g) => {
+          let unlocked = 0;
+          SHARD_PET_NAMES[g].forEach((_, i) => {
+            if (inventory[`${g}_${i}`].level > 0) unlocked++;
+          });
+          counts[g] = { unlocked, total: SHARD_PET_NAMES[g].length };
+        });
+        return counts;
+      }, [inventory]);
+
+      // Pull result overlay
+      const renderPullResult = () => {
+        if (!pullResult) return null;
+        return React.createElement("div", {
+          onClick: () => setPullResult(null),
+          style: {
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: "16px",
+          }
+        },
+          React.createElement("div", {
+            style: { color: "#f6e05e", fontSize: "16px", fontWeight: 700, fontFamily: "'Noto Sans KR', sans-serif" }
+          }, `🎰 ${pullResult.length}연차 결과`),
+          React.createElement("div", {
+            style: { display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", maxWidth: "420px", padding: "0 12px" }
+          },
+            ...pullResult.map((r, i) => {
+              const rc = GRADE_COLORS[r.grade];
+              return React.createElement("div", {
+                key: i,
+                style: { animation: "popIn 0.3s ease-out", animationDelay: `${i * 0.06}s`, animationFillMode: "both", textAlign: "center" }
+              },
+                React.createElement("div", {
+                  style: {
+                    width: "72px", padding: "6px 4px", borderRadius: "10px",
+                    background: `linear-gradient(145deg, ${rc.bg}22, ${rc.bg}44)`,
+                    border: `1px solid ${rc.bg}55`,
+                  }
+                },
+                  React.createElement("div", { style: { fontSize: "24px", lineHeight: 1 } }, SHARD_PET_EMOJIS[r.grade][r.idx]),
+                  React.createElement("div", { style: { fontSize: "10px", color: rc.text, marginTop: "2px", fontWeight: 600 } }, SHARD_PET_NAMES[r.grade][r.idx]),
+                  React.createElement("div", { style: { display: "flex", gap: "3px", justifyContent: "center", marginTop: "2px", alignItems: "center" } },
+                    React.createElement(GradeBadge, { grade: r.grade, size: "xs" }),
+                    React.createElement("span", { style: { fontSize: "10px", color: "#f6e05e", fontWeight: 700 } }, `+${r.amount}`)
+                  ),
+                  r.leveledUp && React.createElement("div", {
+                    style: { fontSize: "9px", fontWeight: 800, color: r.newLevel === 1 ? "#fc8181" : "#f6e05e", marginTop: "2px" }
+                  }, r.newLevel === 1 ? "🆕 해금!" : `⬆ Lv.${r.newLevel}`)
+                )
+              );
+            })
+          ),
+          // Level up summary
+          (() => {
+            const levelUps = pullResult.filter((r) => r.leveledUp);
+            if (levelUps.length === 0) return null;
+            return React.createElement("div", {
+              style: {
+                padding: "8px 14px", borderRadius: "10px",
+                background: "rgba(246,224,94,0.08)", border: "1px solid rgba(246,224,94,0.15)",
+              }
+            },
+              React.createElement("div", { style: { fontSize: "11px", color: "#f6e05e", fontWeight: 700, textAlign: "center" } },
+                `⬆ ${levelUps.filter((r) => r.newLevel === 1).length > 0 ? "새 펫 해금! " : ""}${levelUps.length}건 레벨업`
+              )
+            );
+          })(),
+          React.createElement("div", {
+            style: { color: "#718096", fontSize: "13px", fontFamily: "'Noto Sans KR', sans-serif" }
+          }, "탭하여 닫기")
+        );
+      };
+
+      return React.createElement("div", {
+        style: {
+          height: "100%", width: "100%",
+          fontFamily: "'Noto Sans KR', -apple-system, sans-serif",
+          color: "#e2e8f0", display: "flex", flexDirection: "column",
+        }
+      },
+        // Header
+        React.createElement("div", {
+          style: {
+            padding: "12px 16px",
+            background: "linear-gradient(90deg, rgba(99,179,237,0.08), rgba(183,148,244,0.08), rgba(252,129,129,0.08))",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }
+        },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: "18px", fontWeight: 900, letterSpacing: "-0.5px" } }, "🐾 펫 시스템 (조각 버전)"),
+            React.createElement("div", { style: { fontSize: "11px", color: "#718096", marginTop: "2px" } }, `총 ${totalPulls}회 뽑기`)
+          ),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+            React.createElement("span", { style: { fontSize: "15px" } }, "💎"),
+            React.createElement("span", { style: { fontSize: "15px", fontWeight: 800, color: "#63b3ed" } }, universalShards)
+          )
+        ),
+        // Tabs
+        React.createElement("div", {
+          style: { display: "flex", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.2)" }
+        },
+          ...tabsData.map((t) =>
+            React.createElement("button", {
+              key: t.id, onClick: () => setTab(t.id),
+              style: {
+                flex: 1, padding: "10px 0", border: "none",
+                background: tab === t.id ? `${t.color}15` : "transparent",
+                color: tab === t.id ? t.color : "#4a5568",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                borderBottom: tab === t.id ? `2px solid ${t.color}` : "2px solid transparent",
+                fontFamily: "'Noto Sans KR', sans-serif",
+              }
+            }, t.label)
+          )
+        ),
+        // Content
+        React.createElement("div", {
+          style: { flex: 1, overflowY: "auto", padding: "16px" }
+        },
+          // Pull tab
+          tab === "pull" && React.createElement("div", {
+            style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }
+          },
+            React.createElement("div", { style: { fontSize: "56px", marginBottom: "16px" } }, "🎰"),
+            React.createElement("div", { style: { fontSize: "13px", color: "#a0aec0", marginBottom: "20px" } }, "펫 조각을 뽑아 펫을 해금하고 레벨업하세요!"),
+            React.createElement("div", { style: { display: "flex", gap: "12px" } },
+              React.createElement("button", {
+                onClick: () => doPull(1),
+                style: {
+                  padding: "14px 28px", borderRadius: "12px", border: "none",
+                  background: "linear-gradient(135deg, #f6ad55, #ed8936)", color: "#fff",
+                  fontSize: "15px", fontWeight: 800, cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: "0 4px 15px rgba(237,137,54,0.3)",
+                }
+              }, "1연차"),
+              React.createElement("button", {
+                onClick: () => doPull(10),
+                style: {
+                  padding: "14px 28px", borderRadius: "12px", border: "none",
+                  background: "linear-gradient(135deg, #b794f4, #805ad5)", color: "#fff",
+                  fontSize: "15px", fontWeight: 800, cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: "0 4px 15px rgba(128,90,213,0.3)",
+                }
+              }, "10연차")
+            ),
+            // Pull rates
+            React.createElement("div", {
+              style: { width: "100%", maxWidth: "300px", marginTop: "12px" }
+            },
+              React.createElement("div", { style: { fontSize: "12px", fontWeight: 700, color: "#718096", marginBottom: "8px" } }, "등급별 확률"),
+              ...SHARD_GRADES.map((g) => {
+                const r = SHARD_PULL_RATES[g];
+                return React.createElement("div", {
+                  key: g,
+                  style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }
+                },
+                  React.createElement(GradeBadge, { grade: g, size: "xs" }),
+                  React.createElement("div", { style: { flex: 1, height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)" } },
+                    React.createElement("div", { style: { width: `${r * 100}%`, height: "100%", borderRadius: "3px", background: GRADE_COLORS[g].accent } })
+                  ),
+                  React.createElement("span", { style: { fontSize: "12px", color: "#a0aec0", width: "36px", textAlign: "right" } }, `${(r * 100).toFixed(0)}%`)
+                );
+              })
+            )
+          ),
+          // Collection tab
+          tab === "collection" && React.createElement("div", {
+            style: { display: "flex", flexDirection: "column", gap: "16px" }
+          },
+            ...[...SHARD_GRADES].reverse().map((g) => {
+              const pets = SHARD_PET_NAMES[g].map((_, i) => inventory[`${g}_${i}`]);
+              return React.createElement("div", { key: g },
+                React.createElement("div", {
+                  style: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", paddingBottom: "4px", borderBottom: `1px solid ${GRADE_COLORS[g].bg}33` }
+                },
+                  React.createElement(GradeBadge, { grade: g, size: "sm" }),
+                  React.createElement("span", { style: { fontSize: "14px", fontWeight: 700, color: GRADE_COLORS[g].text } },
+                    `${g}등급 (${stats[g].unlocked}/${stats[g].total})`)
+                ),
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px" } },
+                  ...pets.map((p, i) =>
+                    React.createElement(ShardPetCard, {
+                      key: i, grade: g, idx: i, level: p.level, shards: p.shards,
+                      compact: true, showShards: true,
+                      onClick: () => setPetDetail({ grade: g, idx: i, level: p.level, shards: p.shards }),
+                    })
+                  )
+                )
+              );
+            })
+          ),
+          // Shop tab
+          tab === "shop" && React.createElement("div", {
+            style: { display: "flex", flexDirection: "column", gap: "12px" }
+          },
+            React.createElement("div", {
+              style: { padding: "12px", borderRadius: "10px", background: "rgba(99,179,237,0.08)", border: "1px solid rgba(99,179,237,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between" }
+            },
+              React.createElement("span", { style: { fontSize: "13px", color: "#a0aec0" } }, "보유 만능 조각"),
+              React.createElement("span", { style: { fontSize: "20px", fontWeight: 900, color: "#63b3ed" } }, `💎 ${universalShards}`)
+            ),
+            React.createElement("div", { style: { fontSize: "12px", color: "#718096", marginBottom: "4px" } }, "만능 조각으로 원하는 펫 조각을 교환하세요"),
+            React.createElement("div", { style: { fontSize: "11px", color: "#4a5568", marginBottom: "8px" } }, "만렙 펫의 초과 조각은 자동으로 만능 조각으로 변환됩니다"),
+            ...SHARD_GRADES.map((g) =>
+              React.createElement("div", { key: g },
+                React.createElement("div", {
+                  style: { fontSize: "12px", fontWeight: 700, color: GRADE_COLORS[g].text, marginBottom: "6px" }
+                }, `${g}등급 (1개당 만능 조각 ${g === "B" ? 5 : g === "A" ? 10 : g === "S" ? 25 : 50}개)`),
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" } },
+                  ...SHARD_PET_NAMES[g].map((name, i) => {
+                    const cost = g === "B" ? 5 : g === "A" ? 10 : g === "S" ? 25 : 50;
+                    const canBuy = universalShards >= cost;
+                    return React.createElement("button", {
+                      key: i,
+                      onClick: () => {
+                        if (!canBuy) return;
+                        setUniversalShards((u) => u - cost);
+                        const newInv = { ...inventory };
+                        for (const k of Object.keys(newInv)) newInv[k] = { ...newInv[k] };
+                        const { inv } = addShards(g, i, 1, newInv);
+                        setInventory(inv);
+                        addLog(`🏪 교환: ${name} 조각 1개 (-${cost} 만능 조각)`);
+                      },
+                      style: {
+                        padding: "6px 8px", borderRadius: "8px", border: "none",
+                        background: canBuy ? `${GRADE_COLORS[g].bg}33` : "rgba(255,255,255,0.03)",
+                        color: canBuy ? GRADE_COLORS[g].text : "#4a5568",
+                        fontSize: "11px", fontWeight: 700, cursor: canBuy ? "pointer" : "default",
+                        opacity: canBuy ? 1 : 0.5, fontFamily: "'Noto Sans KR', sans-serif",
+                      }
+                    }, `${SHARD_PET_EMOJIS[g][i]} ${name}`);
+                  })
+                )
+              )
+            )
+          )
+        ),
+        // Log
+        React.createElement("div", {
+          style: { borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)" }
+        },
+          React.createElement("div", { style: { padding: "6px 16px 4px", fontSize: "11px", fontWeight: 700, color: "#4a5568" } }, "📜 로그"),
+          React.createElement("div", {
+            ref: logRef,
+            style: { height: "50px", overflowY: "auto", padding: "0 16px 6px" }
+          },
+            ...log.map((l, i) =>
+              React.createElement("div", { key: i, style: { fontSize: "11px", color: "#718096", lineHeight: 1.8 } }, l.msg)
+            )
+          )
+        ),
+        // Overlays
+        renderPullResult(),
+        petDetail && React.createElement(ShardDetailPopup, {
+          pet: petDetail,
+          onClose: () => setPetDetail(null),
+        })
+      );
+    }
+
+    // ============================================================
+    // ROOT APP - Version Toggle
+    // ============================================================
+    function App() {
+      const [version, setVersion] = useState("fusion");
+
+      return React.createElement("div", {
+        style: {
+          height: "100vh", width: "100vw",
+          background: "linear-gradient(180deg, #0a0e17 0%, #131a2e 50%, #0d1320 100%)",
+          maxWidth: "480px", margin: "0 auto",
+          display: "flex", flexDirection: "column",
+          position: "relative",
+        }
+      },
+        // Main content
+        React.createElement("div", { style: { flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" } },
+          version === "fusion"
+            ? React.createElement(FusionApp)
+            : React.createElement(ShardApp)
+        ),
+        // Version toggle bar
+        React.createElement("div", {
+          style: {
+            display: "flex",
+            borderTop: "2px solid rgba(255,255,255,0.1)",
+            background: "linear-gradient(180deg, #0d1320, #080b14)",
+            flexShrink: 0,
+          }
+        },
+          React.createElement("button", {
+            onClick: () => setVersion("fusion"),
+            style: {
+              flex: 1, padding: "12px 0", border: "none",
+              background: version === "fusion" ? "rgba(183,148,244,0.15)" : "transparent",
+              color: version === "fusion" ? "#b794f4" : "#4a5568",
+              fontSize: "13px", fontWeight: 900, cursor: "pointer",
+              borderTop: version === "fusion" ? "2px solid #b794f4" : "2px solid transparent",
+              fontFamily: "'Noto Sans KR', sans-serif",
+              marginTop: "-2px",
+            }
+          }, "🔮 프로토_합성버전"),
+          React.createElement("button", {
+            onClick: () => setVersion("shard"),
+            style: {
+              flex: 1, padding: "12px 0", border: "none",
+              background: version === "shard" ? "rgba(99,179,237,0.15)" : "transparent",
+              color: version === "shard" ? "#63b3ed" : "#4a5568",
+              fontSize: "13px", fontWeight: 900, cursor: "pointer",
+              borderTop: version === "shard" ? "2px solid #63b3ed" : "2px solid transparent",
+              fontFamily: "'Noto Sans KR', sans-serif",
+              marginTop: "-2px",
+            }
+          }, "💎 프로토_조각버전")
+        )
       );
     }
 
